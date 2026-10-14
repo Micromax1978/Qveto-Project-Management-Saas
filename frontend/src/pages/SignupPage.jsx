@@ -19,7 +19,7 @@ import AuthInput from '../components/auth/AuthInput';
 import PasswordInput from '../components/auth/PasswordInput';
 import PasswordStrengthMeter from '../components/auth/PasswordStrengthMeter';
 import AuthSubmitButton from '../components/auth/AuthSubmitButton';
-import AuthInfoNotice from '../components/auth/AuthInfoNotice';
+import EmailVerification from '../components/auth/EmailVerification';
 
 export default function SignupPage({ forcedRole }) {
   const navigate = useNavigate();
@@ -40,9 +40,15 @@ export default function SignupPage({ forcedRole }) {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submittedNotice, setSubmittedNotice] = useState(false);
+  const [step, setStep] = useState('form'); // 'form' | 'verification'
   const [legalModal, setLegalModal] = useState({ open: false, type: 'terms' });
   const [orgInfoModal, setOrgInfoModal] = useState(false);
+
+  const [prevRole, setPrevRole] = useState(activeRole);
+  if (prevRole !== activeRole) {
+    setPrevRole(activeRole);
+    setStep('form');
+  }
 
   useEffect(() => {
     if (activeRole === 'manager') {
@@ -124,10 +130,6 @@ export default function SignupPage({ forcedRole }) {
 
     setFormData(nextFormData);
 
-    if (submittedNotice) {
-      setSubmittedNotice(false);
-    }
-
     if (touched[name]) {
       const err = validateField(name, fieldValue, nextFormData);
       setErrors((prev) => ({ ...prev, [name]: err }));
@@ -180,26 +182,41 @@ export default function SignupPage({ forcedRole }) {
     }
 
     setIsSubmitting(true);
-    setSubmittedNotice(false);
 
     setTimeout(() => {
       setIsSubmitting(false);
-      setSubmittedNotice(true);
-    }, 1200);
+      setStep('verification');
+    }, 600);
   };
 
-  const handleResetForm = () => {
-    setSubmittedNotice(false);
-    setFormData({
-      fullName: '',
-      email: '',
-      invitationCode: '',
+  const handleChangeEmail = () => {
+    setStep('form');
+    // Preserve non-sensitive form fields in memory, safely clear passwords
+    setFormData((prev) => ({
+      ...prev,
       password: '',
       confirmPassword: '',
-      agreeTerms: false,
-    });
-    setErrors({});
-    setTouched({});
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      password: '',
+      confirmPassword: '',
+    }));
+    setTouched((prev) => ({
+      ...prev,
+      password: false,
+      confirmPassword: false,
+    }));
+  };
+
+  const handleBackToSignup = () => {
+    setStep('form');
+    // Preserve non-sensitive form fields in memory, safely clear passwords
+    setFormData((prev) => ({
+      ...prev,
+      password: '',
+      confirmPassword: '',
+    }));
   };
 
   // ----------------------------------------------------
@@ -421,6 +438,18 @@ export default function SignupPage({ forcedRole }) {
   const alternateLabel = isManager ? 'Sign up as Employee' : 'Sign up as Manager';
   const RoleIcon = isManager ? Briefcase : UserCheck;
 
+  // Transition to Email Verification UI when validation succeeds
+  if (step === 'verification') {
+    return (
+      <EmailVerification
+        email={formData.email}
+        role={activeRole}
+        onChangeEmail={handleChangeEmail}
+        onBack={handleBackToSignup}
+      />
+    );
+  }
+
   return (
     <AuthLayout
       maxWidth="max-w-[520px]"
@@ -468,10 +497,7 @@ export default function SignupPage({ forcedRole }) {
           </div>
         </div>
 
-        {submittedNotice ? (
-          <AuthInfoNotice mode="signup" onReset={handleResetForm} />
-        ) : (
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* 1. Full Name */}
             <AuthInput
               id="fullName"
@@ -634,7 +660,6 @@ export default function SignupPage({ forcedRole }) {
               </p>
             </div>
           </form>
-        )}
       </div>
 
       {/* Transparent Legal Document Dialog */}
