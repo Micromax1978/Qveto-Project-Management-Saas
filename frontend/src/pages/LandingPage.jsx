@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import HeroSection from '../components/HeroSection';
 import ProductPreview from '../components/ProductPreview';
@@ -12,6 +13,7 @@ import Footer from '../components/Footer';
 import ActionModal from '../components/ActionModal';
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const [modalState, setModalState] = useState({
     isOpen: false,
     title: '',
@@ -19,10 +21,17 @@ export default function LandingPage() {
   });
 
   const handleOpenAuth = (type = 'signup') => {
-    let title = 'Get Started with TASKORA';
     if (type === 'login') {
-      title = 'Log in to TASKORA';
-    } else if (type === 'new-task') {
+      navigate('/login');
+      return;
+    }
+    if (type === 'signup') {
+      navigate('/signup');
+      return;
+    }
+
+    let title = 'TASKORA Information';
+    if (type === 'new-task') {
       title = 'Create a New Task';
     } else if (type.startsWith('feature-')) {
       title = 'TASKORA Capability Overview';
