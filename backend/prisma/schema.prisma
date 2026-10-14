@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationRole {
+  OWNER
+  MANAGER
+  EMPLOYEE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+model Organization {
+  id          String         @id @default(uuid())
+  name        String
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  memberships Membership[]
+  workspaces  Workspace[]
+  teams       Team[]
+  projects    Project[]
+  tasks       Task[]
+
+  @@map("organizations")
+}
+
+model User {
+  id          String       @id @default(uuid())
+  name        String
+  email       String       @unique
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  memberships Membership[]
+  tasks        Task[]      @relation("TaskAssignee")
+
+  @@map("users")
+}
+
+model Membership {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  role           OrganizationRole @default(EMPLOYEE)
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("memberships")
+}
+
+model Workspace {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teams        Team[]
+  projects     Project[]
+
+  @@index([organizationId])
+  @@map("workspaces")
+}
+
+model Team {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  workspaceId    String?  @map("workspace_id")
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace    Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@map("teams")
+}
+
+model Project {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  workspaceId    String?  @map("workspace_id")
+  name           String
+  description    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace    Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  tasks        Task[]
+
+  @@index([organizationId])
+  @@map("projects")
+}
+
+model Task {
+  id             String     @id @default(uuid())
+  organizationId String     @map("organization_id")
+  projectId      String     @map("project_id")
+  assigneeId     String?    @map("assignee_id")
+  title          String
+  description    String?
+  status         TaskStatus @default(TODO)
+  dueDate        DateTime?  @map("due_date")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([assigneeId])
+  @@map("tasks")
+}
