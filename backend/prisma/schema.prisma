@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+  
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  memberships Membership[]
+  workspaces  Workspace[]
+  teams       Team[]
+  projects    Project[]
+  tasks       Task[]
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  memberships   Membership[]
+  projectMembers ProjectMember[]
+  assignedTasks Task[]
+
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+}
+
+model Workspace {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  teams        Team[]
+  projects     Project[]
+}
+
+model Team {
+  id             String @id @default(cuid())
+  organizationId String
+  workspaceId    String
+  name           String
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id])
+}
+
+model Project {
+  id             String  @id @default(cuid())
+  organizationId String
+  workspaceId    String
+  name           String
+  description    String?
+
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id])
+  tasks         Task[]
+  projectMembers ProjectMember[]
+}
+
+model ProjectMember {
+  id        String @id @default(cuid())
+  projectId String
+  userId    String
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model Task {
+  id             String    @id @default(cuid())
+  organizationId String
+  projectId      String
+  assigneeId     String?
+  title          String
+  status         String
+  priority       String?
+  dueDate        DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id])
+  assignee     User?        @relation(fields: [assigneeId], references: [id])
+
+  subtasks   Subtask[]
+  taskLabels TaskLabel[]
+}
+
+model Subtask {
+  id       String @id @default(cuid())
+  taskId   String
+  title    String
+  status   String
+
+  task Task @relation(fields: [taskId], references: [id])
+}
+
+model Label {
+  id             String @id @default(cuid())
+  name           String
+  taskLabels     TaskLabel[]
+}
+
+model TaskLabel {
+  id      String @id @default(cuid())
+  taskId String
+  labelId String
+
+  task  Task  @relation(fields: [taskId], references: [id])
+  label Label @relation(fields: [labelId], references: [id])
+
+  @@unique([taskId, labelId])
+}
