@@ -1,4 +1,6 @@
+require("dotenv").config();
 const express = require("express");
+const prisma = require("./lib/prisma");
 
 const app = express();
 
@@ -20,6 +22,25 @@ app.get("/api/health", (req, res) => {
         status: "OK",
         message: "Backend is healthy"
     });
+});
+
+app.get("/api/db-test", async (req, res) => {
+    try {
+        const organizations = await prisma.organization.findMany();
+
+        res.json({
+            status: "OK",
+            message: "Database connection successful",
+            organizationCount: organizations.length
+        });
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            status: "ERROR",
+            message: "Database connection failed"
+        });
+    }
 });
 
 // Start server
