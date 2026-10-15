@@ -1,14 +1,13 @@
+
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
- "scripts": {
-  "test": "node --test"
-},
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "description": "Qveto SaaS Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^6.19.3",
