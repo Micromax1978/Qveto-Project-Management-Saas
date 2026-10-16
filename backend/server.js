@@ -1,4 +1,5 @@
 require("dotenv").config();
+const authRoutes = require("./routes/auth.routes");
 const express = require("express");
 const prisma = require("./lib/prisma");
 
@@ -8,6 +9,8 @@ const PORT = 5000;
 
 // Middleware to read JSON data
 app.use(express.json());
+
+app.use("/api/auth", authRoutes);
 
 // Test route
 app.get("/", (req, res) => {

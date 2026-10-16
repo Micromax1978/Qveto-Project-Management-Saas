@@ -18,6 +18,7 @@ model Organization {
   teams       Team[]
   projects    Project[]
   tasks       Task[]
+  invitations Invitation[]
 }
 
 model User {
@@ -133,4 +134,16 @@ model TaskLabel {
   label Label @relation(fields: [labelId], references: [id])
 
   @@unique([taskId, labelId])
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  code           String       @unique
+  organizationId String
+  role           String
+  used           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  expiresAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
 }
