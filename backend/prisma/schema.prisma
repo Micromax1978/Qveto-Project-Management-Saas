@@ -32,19 +32,21 @@ model Organization {
   teams       Team[]
   projects    Project[]
   tasks       Task[]
+  invitations Invitation[]
 
   @@map("organizations")
 }
 
 model User {
-  id          String       @id @default(uuid())
-  name        String
-  email       String       @unique
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  passwordHash String?      @map("password_hash")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
-  memberships Membership[]
-  tasks        Task[]      @relation("TaskAssignee")
+  memberships  Membership[]
+  tasks        Task[]       @relation("TaskAssignee")
 
   @@map("users")
 }
@@ -131,3 +133,19 @@ model Task {
   @@index([assigneeId])
   @@map("tasks")
 }
+
+model Invitation {
+  id             String       @id @default(uuid())
+  code           String       @unique
+  organizationId String       @map("organization_id")
+  role           String
+  used           Boolean      @default(false)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  expiresAt      DateTime?    @map("expires_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("invitations")
+}
+

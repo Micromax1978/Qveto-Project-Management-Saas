@@ -5,12 +5,24 @@ const prisma = require("./config/prisma");
 const errorHandler = require("./middleware/errorHandler");
 
 // Import route modules
+const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/userRoutes");
 const orgRoutes = require("./routes/orgRoutes");
 const projectRoutes = require("./routes/projectRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
+
+// Enable CORS for frontend integration
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-organization-id, x-user-id");
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
+    next();
+});
 
 app.use(express.json());
 
@@ -23,8 +35,8 @@ app.get("/", (req, res) => {
     });
 });
 
-// Database health check endpoint
-app.get("/health", async (req, res, next) => {
+// Database health check endpoint (supports /health and /api/health)
+const healthHandler = async (req, res, next) => {
     try {
         await prisma.$queryRaw`SELECT 1`;
 
@@ -35,9 +47,13 @@ app.get("/health", async (req, res, next) => {
     } catch (error) {
         next(error);
     }
-});
+};
 
-// Mount core API routes (Week 1 initial API routes)
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
+
+// Mount core API routes
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/organizations", orgRoutes);
 app.use("/api/projects", projectRoutes);
