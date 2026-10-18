@@ -1,15 +1,24 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Qveto SaaS Backend",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test": "node --test"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "type": "commonjs",
   "dependencies": {
-    "express": "^5.3.0"
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.3",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15"
   }
 }
