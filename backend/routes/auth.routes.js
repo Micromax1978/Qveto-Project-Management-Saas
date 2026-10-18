@@ -1,5 +1,6 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
 
 const router = express.Router();
@@ -211,18 +212,32 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        // 6. Successful login
-        res.status(200).json({
-            status: "OK",
-            message: "Login successful",
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email
-            },
-            role: membership.role,
-            organizationId: membership.organizationId
-        });
+        //// 6. Create authentication token
+const token = jwt.sign(
+    {
+        userId: user.id,
+        organizationId: membership.organizationId,
+        role: membership.role
+    },
+    process.env.JWT_SECRET,
+    {
+        expiresIn: "1d"
+    }
+);
+
+// 7. Successful login
+res.status(200).json({
+    status: "OK",
+    message: "Login successful",
+    token,
+    user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+    },
+    role: membership.role,
+    organizationId: membership.organizationId
+});
 
     } catch (error) {
         console.error("Login error:", error);
