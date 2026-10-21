@@ -21,6 +21,9 @@ router.post(
     projectController.createProject
 );
 
+// PATCH /api/projects/:id
+router.patch("/:id", projectController.updateProject);
+
 // DELETE /api/projects/:id
 router.delete("/:id", projectController.deleteProject);
 
