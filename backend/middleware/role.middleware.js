@@ -4,9 +4,7 @@ function requireRole(...allowedRoles) {
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({
-                error: "Authentication required",
-                status: "ERROR",
-                message: "Authentication required"
+                error: "Authentication required"
             });
         }
 
@@ -14,9 +12,7 @@ function requireRole(...allowedRoles) {
 
         if (!normalized.includes(userRole)) {
             return res.status(403).json({
-                error: "You do not have permission to perform this action",
-                status: "ERROR",
-                message: "You do not have permission to perform this action"
+                error: "You do not have permission to perform this action"
             });
         }
 

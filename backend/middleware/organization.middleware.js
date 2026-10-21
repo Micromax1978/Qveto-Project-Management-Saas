@@ -1,9 +1,7 @@
 function requireOrganization(req, res, next) {
     if (!req.user) {
         return res.status(401).json({
-            error: "Authentication required",
-            status: "ERROR",
-            message: "Authentication required"
+            error: "Authentication required"
         });
     }
 
@@ -11,9 +9,7 @@ function requireOrganization(req, res, next) {
 
     if (!orgId) {
         return res.status(403).json({
-            error: "Organization information is missing",
-            status: "ERROR",
-            message: "Organization information is missing"
+            error: "Organization information is missing"
         });
     }
 

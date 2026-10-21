@@ -6,9 +6,7 @@ function authenticateToken(req, res, next) {
 
         if (!authHeader) {
             return res.status(401).json({
-                error: "Authentication token is required",
-                status: "ERROR",
-                message: "Authentication token is required"
+                error: "Authentication token is required"
             });
         }
 
@@ -16,9 +14,7 @@ function authenticateToken(req, res, next) {
 
         if (parts.length !== 2 || parts[0] !== "Bearer") {
             return res.status(401).json({
-                error: "Invalid authorization format",
-                status: "ERROR",
-                message: "Invalid authorization format"
+                error: "Invalid authorization format"
             });
         }
 
@@ -31,9 +27,7 @@ function authenticateToken(req, res, next) {
         next();
     } catch (error) {
         return res.status(401).json({
-            error: "Invalid or expired authentication token",
-            status: "ERROR",
-            message: "Invalid or expired authentication token"
+            error: "Invalid or expired authentication token"
         });
     }
 }
