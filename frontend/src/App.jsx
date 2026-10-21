@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ManagerSignupPage from './pages/ManagerSignupPage';
 import EmployeeSignupPage from './pages/EmployeeSignupPage';
+import DashboardPage from './pages/DashboardPage';
 
 function App() {
   return (
@@ -15,6 +16,9 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/signup/manager" element={<ManagerSignupPage />} />
         <Route path="/signup/employee" element={<EmployeeSignupPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/projects" element={<DashboardPage />} />
+        <Route path="/tasks" element={<DashboardPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
