@@ -120,6 +120,8 @@ model Task {
   title          String
   description    String?
   status         TaskStatus @default(TODO)
+  priority       String?    @default("MEDIUM")
+  label          String?
   dueDate        DateTime?  @map("due_date")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
