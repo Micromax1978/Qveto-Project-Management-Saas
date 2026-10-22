@@ -43,8 +43,9 @@ model User {
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
-  memberships Membership[]
-  tasks        Task[]      @relation("TaskAssignee")
+memberships       Membership[]
+tasks             Task[]          @relation("TaskAssignee")
+projectMemberships ProjectMember[]
 
   @@map("users")
 }
@@ -104,7 +105,8 @@ model Project {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   workspace    Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  tasks        Task[]
+tasks           Task[]
+projectMembers  ProjectMember[]
 
   @@index([organizationId])
   @@map("projects")
@@ -130,4 +132,18 @@ model Task {
   @@index([projectId])
   @@index([assigneeId])
   @@map("tasks")
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
 }
