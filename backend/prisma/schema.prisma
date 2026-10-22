@@ -22,30 +22,32 @@ enum TaskStatus {
 }
 
 model Organization {
-  id          String         @id @default(uuid())
-  name        String
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   memberships Membership[]
   workspaces  Workspace[]
   teams       Team[]
   projects    Project[]
   tasks       Task[]
+  invitations Invitation[]
 
   @@map("organizations")
 }
 
 model User {
-  id          String       @id @default(uuid())
-  name        String
-  email       String       @unique
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-memberships       Membership[]
-tasks             Task[]          @relation("TaskAssignee")
-projectMemberships ProjectMember[]
+  memberships        Membership[]
+  tasks              Task[]          @relation("TaskAssignee")
+  projectMemberships ProjectMember[]
 
   @@map("users")
 }
@@ -103,10 +105,10 @@ model Project {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  workspace    Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-tasks           Task[]
-projectMembers  ProjectMember[]
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  tasks          Task[]
+  projectMembers ProjectMember[]
 
   @@index([organizationId])
   @@map("projects")
@@ -120,6 +122,8 @@ model Task {
   title          String
   description    String?
   status         TaskStatus @default(TODO)
+  priority       String?    @default("MEDIUM")
+  label          String?
   dueDate        DateTime?  @map("due_date")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
@@ -146,4 +150,19 @@ model ProjectMember {
   @@unique([projectId, userId])
   @@index([userId])
   @@map("project_members")
+}
+
+model Invitation {
+  id             String    @id @default(uuid())
+  code           String    @unique
+  organizationId String    @map("organization_id")
+  role           String
+  used           Boolean   @default(false)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  expiresAt      DateTime? @map("expires_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("invitations")
 }
