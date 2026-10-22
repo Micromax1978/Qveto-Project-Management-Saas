@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -106,8 +105,8 @@ model Project {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  workspace      Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   tasks          Task[]
   projectMembers ProjectMember[]
 
@@ -131,12 +130,8 @@ model Task {
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project      Project      @relation(
-    fields: [projectId, organizationId],
-    references: [id, organizationId],
-    onDelete: Cascade
-  )
-  assignee User? @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  project      Project      @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([projectId])
