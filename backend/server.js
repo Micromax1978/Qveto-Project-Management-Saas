@@ -7,7 +7,8 @@ const authenticateToken = require("./middleware/auth.middleware");
 const requireRole = require("./middleware/role.middleware");
 const requireOrganization = require("./middleware/organization.middleware");
 const organizationRoutes = require("./routes/organization.routes");
-
+const projectRoutes = require("./routes/project.routes");
+const taskRoutes = require("./routes/task.routes");
 const app = express();
 
 const PORT = 5000;
@@ -18,6 +19,8 @@ app.use(express.json());
 // Authentication routes
 app.use("/api/auth", authRoutes);
 app.use("/api/organization", organizationRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/tasks", taskRoutes);
 
 // Test route
 app.get("/", (req, res) => {
