@@ -4,6 +4,11 @@ const express = require("express");
 const prisma = require("./config/prisma");
 const errorHandler = require("./middleware/errorHandler");
 
+// Import middleware for testing endpoints
+const authenticateToken = require("./middleware/auth.middleware");
+const requireRole = require("./middleware/role.middleware");
+const requireOrganization = require("./middleware/organization.middleware");
+
 // Import route modules
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/userRoutes");
@@ -52,10 +57,72 @@ const healthHandler = async (req, res, next) => {
 app.get("/health", healthHandler);
 app.get("/api/health", healthHandler);
 
+// Database connection test endpoint (Member 2 test route)
+app.get("/api/db-test", async (req, res) => {
+    try {
+        const organizations = await prisma.organization.findMany();
+
+        res.json({
+            status: "OK",
+            message: "Database connection successful",
+            organizationCount: organizations.length
+        });
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            status: "ERROR",
+            message: "Database connection failed",
+            error: "Database connection failed"
+        });
+    }
+});
+
+// Protected test endpoint (Member 2 test route)
+app.get("/api/protected-test", authenticateToken, (req, res) => {
+    res.json({
+        status: "OK",
+        message: "Authentication successful",
+        user: req.user
+    });
+});
+
+// Manager/Owner test endpoint (Member 2 test route)
+app.get(
+    "/api/manager-test",
+    authenticateToken,
+    requireRole("owner", "manager"),
+    (req, res) => {
+        res.json({
+            status: "OK",
+            message: "Manager/Owner access granted",
+            user: req.user
+        });
+    }
+);
+
+// Organization test endpoint (Member 2 test route)
+app.get(
+    "/api/organization-test",
+    authenticateToken,
+    requireOrganization,
+    (req, res) => {
+        res.json({
+            status: "OK",
+            message: "Organization access granted",
+            organizationId: req.organizationId,
+            user: req.user
+        });
+    }
+);
+
+const organizationRoutes = require("./routes/organization.routes");
+
 // Mount core API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/organizations", orgRoutes);
+app.use("/api/organization", organizationRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
 
