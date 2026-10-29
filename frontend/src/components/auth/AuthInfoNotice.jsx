@@ -42,16 +42,25 @@ export default function AuthInfoNotice({
             </span>
           </div>
 
-          {onReset && (
-            <button
-              type="button"
-              onClick={onReset}
-              className="mt-3.5 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-800 focus:outline-hidden focus:underline"
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
+            <a
+              href="/app/projects"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors"
             >
-              <span>Test form again</span>
+              <span>Enter Taskora Workspace</span>
               <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </button>
-          )}
+            </a>
+
+            {onReset && (
+              <button
+                type="button"
+                onClick={onReset}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2 rounded-xl border border-slate-200 hover:bg-white transition-colors"
+              >
+                <span>Test form again</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
