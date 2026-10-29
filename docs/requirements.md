@@ -1,106 +1,82 @@
-# Software Requirements Specification (SRS)
-## Project Management & Team Collaboration SaaS
+# Qveto Project Management & Team Collaboration SaaS
+## Software Requirements Specification (SRS) - Week 1 & 2 Baseline
 
+**Document Owner:** Member 5 (Requirements, Testing, Documentation and QA)  
 **Project:** Qveto Project Management & Team Collaboration SaaS  
-**Status:** Initial draft; confirm with the project team.
+**Industry:** IT Services / Enterprise Software  
+**Target Delivery:** 4-Week Production Sprint  
 
-## 1. Introduction
-This document describes requirements for a SaaS application that helps organizations plan projects, manage tasks, collaborate, and track progress.
+---
 
-## 2. Objectives
-- Organize work by organization, workspace, team, and project.
-- Create, assign, prioritize, and track tasks.
-- Support collaboration through comments, attachments, activity history, and notifications where implemented.
-- Enforce role-based access and organization-level data isolation.
-- Provide a maintainable and testable application.
+### 1. Product Overview & System Context
+Modern teams struggle with disconnected spreadsheets, missing task context, untracked deadlines, and ambiguous ownership. Qveto is a multi-tenant enterprise collaboration platform enabling organizations to manage workspaces, projects, Kanban boards, role permissions, file attachments, notifications, and productivity reporting.
 
-## 3. Scope
-### In scope
-- User authentication and organization membership.
-- Organization, workspace, team, and project management.
-- Task creation, assignment, status, priority, and due dates.
-- Subtasks, Kanban views, comments, attachments, notifications, activity history, and analytics where supported.
-- Role-based permissions, data isolation, testing, documentation, and deployment preparation.
+### 2. Functional Requirements by Module
 
-### Out of scope for the initial version
-- Billing and subscription management.
-- Third-party integrations unless approved separately.
-- Advanced enterprise reporting unless approved separately.
+#### 2.1 Accounts & Authentication
+- **FR-AUTH-01:** Secure user registration, authentication, and session handling using JWT.
+- **FR-AUTH-02:** Passwords hashed using bcrypt prior to database storage.
+- **FR-AUTH-03:** Multi-tenant organization scoping embedded securely in user credentials.
 
-## 4. User Roles
-- **Owner:** Manages organization settings and membership and has the highest organization-level permissions.
-- **Manager:** Manages projects and tasks within granted permissions.
-- **Employee:** Views and updates assigned or otherwise permitted work.
-- Confirm final permissions against the approved permission matrix.
+#### 2.2 Organizations & Workspaces
+- **FR-ORG-01:** Support multiple isolated tenant organizations (e.g. Acme Corp vs. Beta Technologies).
+- **FR-ORG-02:** Strict tenant boundary isolation: Organization A users cannot read, edit, or leak Organization B records.
+- **FR-ORG-03:** Membership management with predefined roles: **Owner**, **Manager**, and **Employee**.
 
-## 5. Functional Requirements
-- **FR-01 Authentication:** Users can sign in and access authorized resources.
-- **FR-02 Organization:** Authorized users can view/manage organization details and membership.
-- **FR-03 Workspace:** Authorized users can organize work into workspaces.
-- **FR-04 Team:** Authorized users can manage teams as permitted.
-- **FR-05 Project:** Authorized users can create, view, update, and manage projects.
-- **FR-06 Task management:** Users with permission can create, view, update, assign, and track tasks.
-- **FR-07 Task details:** Tasks may include descriptions, priority, status, due dates, and assignees.
-- **FR-08 Subtasks:** Users can create and track subtasks where supported.
-- **FR-09 Board view:** Tasks can be displayed and moved through workflow columns where supported.
-- **FR-10 Collaboration:** Users can add comments and attachments where supported.
-- **FR-11 Notifications/activity:** Users can receive notifications and view activity history where supported.
-- **FR-12 Reporting:** Authorized users can view project progress or analytics where supported.
-- **FR-13 Access control:** The backend verifies permissions for protected operations.
-- **FR-14 Organization isolation:** Users cannot access another organization's data unless explicitly authorized.
-- **FR-15 Persistence:** Valid changes are saved and remain available after reload/restart.
+#### 2.3 Projects Management (Week 2 Focus)
+- **FR-PROJ-01:** Project creation with unique title per organization, description, timeline, and member assignment.
+- **FR-PROJ-02:** Role-governed access: Owners and Managers can create/edit projects; Employees can only view assigned projects.
+- **FR-PROJ-03:** Project lifecycle statuses: `ACTIVE`, `COMPLETED`, `ARCHIVED`.
 
-## 6. Non-Functional Requirements
-- **NFR-01 Security:** Validate inputs and protect authentication/authorization boundaries.
-- **NFR-02 Data isolation:** Scope organization-owned records and API queries to the authorized organization.
-- **NFR-03 Reliability:** Invalid operations return clear errors and do not corrupt data.
-- **NFR-04 Usability:** Common project/task actions are understandable and consistent.
-- **NFR-05 Maintainability:** Keep code modular and document setup/configuration.
-- **NFR-06 Data integrity:** Enforce required fields, foreign keys, and uniqueness rules where appropriate.
-- **NFR-07 Testability:** Core features and access-control rules have repeatable tests.
+#### 2.4 Tasks & Kanban Lifecycle (Week 2 Focus)
+- **FR-TASK-01:** Create, update, assign, and schedule tasks within an authorized project.
+- **FR-TASK-02:** Priority levels: `LOW`, `MEDIUM`, `HIGH`, `URGENT`.
+- **FR-TASK-03:** Subtasks support with individual completion checkboxes and dynamic aggregate completion percentage calculation.
+- **FR-TASK-04:** Multi-label tagging with normalized string representation.
+- **FR-TASK-05:** Interactive Kanban board with 4 discrete stages: `TODO`, `IN_PROGRESS`, `REVIEW`, `DONE`.
+- **FR-TASK-06:** Accessible alternative controls (keyboard shortcuts and select dropdowns) complementing drag-and-drop interactions.
+- **FR-TASK-07:** Task completion timestamp automatically recorded when transitioned to `DONE` and cleared if reopened.
 
-## 7. Initial Data Requirements
-Expected entities, subject to confirmation against the actual Prisma schema:
-- User
-- Organization
-- Membership
-- Workspace
-- Team
-- Project
-- Task
+#### 2.5 Search, Filters & Views
+- **FR-VIEW-01:** Real-time text search querying task titles and descriptions.
+- **FR-VIEW-02:** Combinatorial filtering by Status, Priority, Assignee ID, and Tag/Label.
+- **FR-VIEW-03:** Column-based order persistence across user sessions and page reloads.
 
-Relationships and fields must match the approved ER diagram and database schema.
+#### 2.6 Collaboration, Comments & Attachments (Week 3 Preview)
+- **FR-COLLAB-01:** Rich comment thread on tasks with author timestamp and audit trail.
+- **FR-COLLAB-02:** Controlled file attachments with size and MIME-type validation.
 
-## 8. User Journeys
-1. **Sign in:** User signs in and sees only organizations/projects they may access.
-2. **Create project:** Authorized owner/manager creates a project in the correct organization/workspace.
-3. **Create and assign task:** Authorized user creates a task and assigns it to an eligible member.
-4. **Update task:** User changes task status and confirms it remains saved after reload.
-5. **Collaborate:** Authorized member comments on a task or attaches a file if available.
-6. **Cross-organization protection:** User attempts to access another organization's task/project; backend denies access without exposing data.
+#### 2.7 Productivity Reporting & Analytics (Week 4 Preview)
+- **FR-REP-01:** Project progress formula: $\text{Progress} = \frac{\text{Completed Non-Archived Tasks}}{\text{Total Non-Archived Tasks}} \times 100\%$.
+- **FR-REP-02:** Overdue task tracking comparing due dates against current UTC time.
 
-## 9. Testing Requirements
-- Test authentication and authorization for protected endpoints.
-- Test required fields, valid relationships, and database constraints.
-- Test task creation, updates, assignment, and persistence.
-- Test invalid IDs and unauthorized requests.
-- Test cross-organization access denial.
-- Test fresh database setup and repeatable seed behavior.
-- Record actual results; do not mark tests passed before execution.
+---
 
-## 10. Assumptions and Constraints
-- This is a team project using a shared repository.
-- Schema, API behavior, and feature availability may change during development.
-- Role rules and optional features must be confirmed by the team.
-- This document describes intended requirements and does not claim every feature is implemented.
+### 3. User Journeys
 
-## 11. Acceptance Criteria
-- Authorized users can perform project/task operations allowed by their roles.
-- Unauthorized operations are rejected by the backend.
-- Users cannot access another organization's projects/tasks without authorization.
-- Database constraints prevent invalid records.
-- Setup and testing instructions are documented.
-- Test results and confirmed defects are recorded accurately.
+#### Journey 1: Organization Owner Onboarding & Project Setup
+1. Alice signs up and provisions "Acme Corporation".
+2. Alice invites Bob as a **Manager** and Charlie as an **Employee**.
+3. Alice creates the core project "Acme SaaS Web App".
+4. Alice defines project milestones and assigns Bob and Charlie to the project roster.
 
-## 12. Conclusion
-This initial SRS provides a shared baseline for the Qveto Project Management & Team Collaboration SaaS. Review it against the project brief, ER diagram, Prisma schema, API implementation, and permission matrix before approval.
+#### Journey 2: Engineering Manager Sprint Planning & Task Assignment
+1. Bob logs into the Acme workspace and navigates to "Acme SaaS Web App".
+2. Bob creates sprint backlog tasks:
+   - Sets priority `HIGH` and `URGENT`.
+   - Attaches subtask checklists (e.g., "Draft ER diagram", "Write SQL migration script").
+   - Assigns Charlie Dev as the task owner.
+   - Sets due dates based on sprint deliverables.
+3. Bob reviews workload distribution across team members.
+
+#### Journey 3: Employee Daily Kanban Workflow & Execution
+1. Charlie logs in and views the "My Work" dashboard showing tasks assigned to him.
+2. Charlie opens the Kanban board for "Acme SaaS Web App".
+3. Charlie uses drag-and-drop or the keyboard accessible dropdown to advance task `task_3` from `TODO` to `IN_PROGRESS`.
+4. Charlie completes individual subtask checkboxes, observing the progress bar update from 0% to 50% to 100%.
+5. Upon peer verification, Charlie shifts the card to `DONE`, triggering automatic `completedAt` timestamp capture.
+
+#### Journey 4: Strict Multi-Tenant Isolation Verification
+1. Frank, an employee at "Beta Technologies", attempts to craft an API request fetching tasks from Acme Corporation's project `proj_acme_web`.
+2. The server-side multi-tenant middleware inspects Frank's tenant claims and finds a mismatch.
+3. The server immediately returns a `404 Not Found`, ensuring Beta Technologies cannot determine whether the resource exists or gain unauthorized data access.
