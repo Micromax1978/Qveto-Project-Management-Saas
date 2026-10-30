@@ -2,6 +2,15 @@ const prisma = require("../config/prisma");
 
 const MAX_COMMENT_LENGTH = 5000;
 
+function isValidTaskId(id) {
+    if (!id || typeof id !== "string") return false;
+    const clean = id.trim();
+    if (clean.length === 0) return false;
+    if (/\s/.test(clean)) return false;
+    if (!/^[a-zA-Z0-9_-]+$/.test(clean)) return false;
+    return true;
+}
+
 function getInitials(name) {
     if (!name || typeof name !== "string") return "U";
     const parts = name.trim().split(/\s+/);
@@ -34,6 +43,60 @@ function enrichComment(comment) {
 }
 
 /**
+ * Verify task authorization:
+ * - Checks if task ID is syntactically valid
+ * - Checks if task exists within the organization
+ * - If user is an EMPLOYEE, verifies project membership if project membership is restricted
+ */
+async function verifyTaskAccess(taskId, organizationId, user, userRole) {
+    if (!isValidTaskId(taskId)) {
+        return { error: "Invalid task ID format", status: 400 };
+    }
+
+    const task = await prisma.task.findFirst({
+        where: {
+            id: taskId,
+            organizationId
+        }
+    });
+
+    if (!task) {
+        return {
+            error: `Task not found with id: ${taskId} in the current organization`,
+            status: 404
+        };
+    }
+
+    if (user && user.id && userRole === "EMPLOYEE") {
+        try {
+            const totalProjectMembers = await prisma.projectMember.count({
+                where: { projectId: task.projectId }
+            });
+
+            if (totalProjectMembers > 0) {
+                const isMember = await prisma.projectMember.findFirst({
+                    where: {
+                        projectId: task.projectId,
+                        userId: user.id
+                    }
+                });
+
+                if (!isMember) {
+                    return {
+                        error: "Forbidden: You do not have access to tasks in this project",
+                        status: 403
+                    };
+                }
+            }
+        } catch (memberErr) {
+            console.warn("[CommentController] Project membership verification warning:", memberErr.message);
+        }
+    }
+
+    return { task };
+}
+
+/**
  * GET /api/tasks/:taskId/comments
  * Retrieve all comments for a specific task in oldest-first order.
  */
@@ -41,23 +104,12 @@ async function getComments(req, res, next) {
     try {
         const taskId = req.params.taskId || req.params.id;
         const organizationId = req.organizationId;
+        const user = req.user;
+        const userRole = req.userRole;
 
-        if (!taskId || typeof taskId !== "string" || taskId.trim() === "") {
-            return res.status(400).json({ error: "Task ID is required" });
-        }
-
-        // Verify task exists in the current organization
-        const task = await prisma.task.findFirst({
-            where: {
-                id: taskId,
-                organizationId
-            }
-        });
-
-        if (!task) {
-            return res.status(404).json({
-                error: `Task not found with id: ${taskId} in the current organization`
-            });
+        const access = await verifyTaskAccess(taskId, organizationId, user, userRole);
+        if (access.error) {
+            return res.status(access.status).json({ error: access.error });
         }
 
         const comments = await prisma.comment.findMany({
@@ -101,34 +153,17 @@ async function createComment(req, res, next) {
         const taskId = req.params.taskId || req.params.id;
         const organizationId = req.organizationId;
         const user = req.user;
+        const userRole = req.userRole;
         const { text } = req.body || {};
 
         if (!user || !user.id) {
             return res.status(401).json({
-                error: "Unauthorized: You must be logged in to post comments."
-            });
-        }
-
-        if (!taskId || typeof taskId !== "string" || taskId.trim() === "") {
-            return res.status(400).json({ error: "Task ID is required" });
-        }
-
-        // Verify task exists in the current organization
-        const task = await prisma.task.findFirst({
-            where: {
-                id: taskId,
-                organizationId
-            }
-        });
-
-        if (!task) {
-            return res.status(404).json({
-                error: `Task not found with id: ${taskId} in the current organization`
+                error: "Unauthorized: You must be authenticated to post comments."
             });
         }
 
         // Validate comment text
-        if (typeof text !== "string" || text.trim() === "") {
+        if (text === undefined || text === null || typeof text !== "string" || text.trim() === "") {
             return res.status(400).json({
                 error: "Comment text cannot be empty"
             });
@@ -140,6 +175,13 @@ async function createComment(req, res, next) {
             });
         }
 
+        const access = await verifyTaskAccess(taskId, organizationId, user, userRole);
+        if (access.error) {
+            return res.status(access.status).json({ error: access.error });
+        }
+
+        const task = access.task;
+
         // Ensure author user exists in database
         let authorId = user.id;
         const existingUser = await prisma.user.findUnique({
@@ -147,7 +189,6 @@ async function createComment(req, res, next) {
         });
 
         if (!existingUser) {
-            // For synthetic tokens / test accounts, ensure user record exists
             try {
                 const upserted = await prisma.user.upsert({
                     where: { email: user.email || `${user.id}@example.com` },
@@ -224,7 +265,6 @@ async function deleteComment(req, res, next) {
             return res.status(404).json({ error: "Comment not found" });
         }
 
-        // Only author or organization manager/owner can delete
         const isAuthor = user && user.id === comment.authorId;
         const isManager = req.userRole === "OWNER" || req.userRole === "MANAGER";
 
@@ -252,5 +292,6 @@ module.exports = {
     createComment,
     deleteComment,
     enrichComment,
+    isValidTaskId,
     MAX_COMMENT_LENGTH
 };
