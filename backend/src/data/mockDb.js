@@ -1,7 +1,7 @@
 /**
  * mockDb.js
  * In-memory relational data store for Qveto SaaS testing and demo.
- * Fully supports multi-tenant isolation, role checks, projects, tasks, subtasks, and labels.
+ * Fully supports multi-tenant isolation, role checks, projects, tasks, subtasks, labels, and comments.
  */
 
 function createInitialState() {
@@ -158,6 +158,7 @@ function createInitialState() {
         completedAt: null
       }
     ],
+    comments: [],
     auditLogs: []
   };
 }
