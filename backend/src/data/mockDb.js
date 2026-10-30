@@ -1,7 +1,8 @@
 /**
  * mockDb.js
  * In-memory relational data store for Qveto SaaS testing and demo.
- * Fully supports multi-tenant isolation, role checks, projects, tasks, subtasks, and labels.
+ * Fully supports multi-tenant isolation, role checks, projects, tasks, subtasks,
+ * labels, comments, attachments, notifications, and activity audit logs.
  */
 
 function createInitialState() {
@@ -158,7 +159,85 @@ function createInitialState() {
         completedAt: null
       }
     ],
-    auditLogs: []
+    comments: [
+      {
+        id: 'comment_1',
+        orgId: 'org_acme_corp',
+        projectId: 'proj_acme_web',
+        taskId: 'task_1',
+        authorId: 'user_manager_1',
+        authorName: 'Bob Manager',
+        content: 'Database ER diagram review completed and approved for migration.',
+        createdAt: '2026-10-08T14:30:00Z',
+        updatedAt: '2026-10-08T14:30:00Z'
+      },
+      {
+        id: 'comment_beta_1',
+        orgId: 'org_beta_tech',
+        projectId: 'proj_beta_crm',
+        taskId: 'task_beta_1',
+        authorId: 'user_external_owner',
+        authorName: 'Eve Beta Owner',
+        content: 'Confidential CRM integration specs for internal team only.',
+        createdAt: '2026-10-06T10:00:00Z',
+        updatedAt: '2026-10-06T10:00:00Z'
+      }
+    ],
+    attachments: [
+      {
+        id: 'att_1',
+        orgId: 'org_acme_corp',
+        projectId: 'proj_acme_web',
+        taskId: 'task_1',
+        uploaderId: 'user_manager_1',
+        fileName: 'schema-architecture-v1.pdf',
+        fileSize: 1048576, // 1 MB
+        mimeType: 'application/pdf',
+        storagePath: 'storage/org_acme_corp/proj_acme_web/att_1_schema-architecture-v1.pdf',
+        isPublic: false,
+        createdAt: '2026-10-08T15:00:00Z'
+      },
+      {
+        id: 'att_beta_1',
+        orgId: 'org_beta_tech',
+        projectId: 'proj_beta_crm',
+        taskId: 'task_beta_1',
+        uploaderId: 'user_external_owner',
+        fileName: 'beta-confidential-contract.pdf',
+        fileSize: 2097152, // 2 MB
+        mimeType: 'application/pdf',
+        storagePath: 'storage/org_beta_tech/proj_beta_crm/att_beta_1_confidential.pdf',
+        isPublic: false,
+        createdAt: '2026-10-07T11:00:00Z'
+      }
+    ],
+    notifications: [
+      {
+        id: 'notif_1',
+        orgId: 'org_acme_corp',
+        userId: 'user_employee_1',
+        type: 'TASK_ASSIGNED',
+        title: 'Task Assignment',
+        message: 'You were assigned to task: Design database schema and migrations',
+        relatedTaskId: 'task_1',
+        isRead: true,
+        emailDeliverySimulated: true,
+        createdAt: '2026-10-03T09:05:00Z'
+      },
+      {
+        id: 'notif_2',
+        orgId: 'org_acme_corp',
+        userId: 'user_employee_1',
+        type: 'TASK_ASSIGNED',
+        title: 'Task Assignment',
+        message: 'You were assigned to task: Build Kanban Board drag-and-drop UI',
+        relatedTaskId: 'task_2',
+        isRead: false,
+        emailDeliverySimulated: true,
+        createdAt: '2026-10-04T10:05:00Z'
+      }
+    ],
+    activityLogs: []
   };
 }
 
