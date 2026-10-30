@@ -149,3 +149,21 @@ export async function deleteTask(id) {
     method: 'DELETE',
   });
 }
+
+// Comment API calls (Week 3)
+export async function fetchTaskComments(taskId) {
+  return request(`/tasks/${taskId}/comments`);
+}
+
+export async function createTaskComment(taskId, commentData) {
+  return request(`/tasks/${taskId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify(commentData),
+  });
+}
+
+export async function deleteComment(commentId) {
+  return request(`/comments/${commentId}`, {
+    method: 'DELETE',
+  });
+}

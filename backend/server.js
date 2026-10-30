@@ -15,6 +15,7 @@ const userRoutes = require("./routes/userRoutes");
 const orgRoutes = require("./routes/orgRoutes");
 const projectRoutes = require("./routes/projectRoutes");
 const taskRoutes = require("./routes/taskRoutes");
+const commentRoutes = require("./routes/commentRoutes");
 
 const app = express();
 
@@ -125,6 +126,7 @@ app.use("/api/organizations", orgRoutes);
 app.use("/api/organization", organizationRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/comments", commentRoutes);
 
 // 404 handler for unknown routes
 app.use((req, res) => {

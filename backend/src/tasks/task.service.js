@@ -1,6 +1,6 @@
 /**
  * task.service.js
- * Business logic, validation, Kanban stage handling, and filtering for Tasks.
+ * Business logic, validation, Kanban stage handling, filtering, and comments for Tasks.
  */
 
 const { getDb } = require('../data/mockDb');
@@ -343,6 +343,110 @@ class TaskService {
     }
 
     return this.updateKanbanStatus(taskId, { targetStatus: VALID_STATUSES[nextIndex] }, user);
+  }
+
+  /**
+   * Week 3: Retrieve comments belonging to a task in oldest-first order
+   */
+  static listComments(taskId, user) {
+    const db = getDb();
+    if (!user || !user.orgId) {
+      throw { status: 401, message: 'Unauthorized' };
+    }
+
+    const task = db.tasks.find(t => t.id === taskId);
+    if (!task || task.orgId !== user.orgId) {
+      throw { status: 404, message: 'Task not found' };
+    }
+
+    const comments = (db.comments || [])
+      .filter(c => c.taskId === taskId && (c.orgId === user.orgId || c.organizationId === user.orgId))
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .map(c => {
+        const author = db.users.find(u => u.id === c.authorId) || {
+          id: c.authorId,
+          name: 'User',
+          email: 'user@example.com'
+        };
+        return {
+          id: c.id,
+          taskId: c.taskId,
+          authorId: c.authorId,
+          organizationId: c.organizationId || c.orgId,
+          text: c.text,
+          createdAt: c.createdAt,
+          author: {
+            id: author.id,
+            name: author.name,
+            email: author.email
+          }
+        };
+      });
+
+    return comments;
+  }
+
+  /**
+   * Week 3: Create comment on a task with validation and activity recording
+   */
+  static createComment(taskId, payload, user) {
+    const db = getDb();
+    if (!user || !user.orgId) {
+      throw { status: 401, message: 'Unauthorized' };
+    }
+
+    const task = db.tasks.find(t => t.id === taskId);
+    if (!task || task.orgId !== user.orgId) {
+      throw { status: 404, message: 'Task not found' };
+    }
+
+    if (!payload || !payload.text || typeof payload.text !== 'string' || payload.text.trim() === '') {
+      throw { status: 400, message: 'Comment text cannot be empty' };
+    }
+
+    if (payload.text.length > 5000) {
+      throw { status: 400, message: 'Comment text exceeds maximum allowed length of 5000 characters' };
+    }
+
+    const newComment = {
+      id: `comm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      taskId,
+      authorId: user.id,
+      orgId: user.orgId,
+      organizationId: user.orgId,
+      text: this.sanitizeText(payload.text.trim()),
+      createdAt: new Date().toISOString()
+    };
+
+    if (!db.comments) db.comments = [];
+    db.comments.push(newComment);
+
+    if (db.auditLogs) {
+      db.auditLogs.push({
+        id: `audit_${Date.now()}`,
+        action: 'COMMENT_CREATED',
+        entityId: newComment.id,
+        taskId,
+        orgId: user.orgId,
+        actorId: user.id,
+        timestamp: newComment.createdAt
+      });
+    }
+
+    const author = db.users.find(u => u.id === user.id) || {
+      id: user.id,
+      name: user.name || 'User',
+      email: user.email || 'user@example.com'
+    };
+
+    return {
+      ...newComment,
+      author: {
+        id: author.id,
+        name: author.name,
+        email: author.email
+      }
+    };
   }
 }
 

@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
   USERS: 'taskora_users',
   PROJECTS: 'taskora_projects',
   TASKS: 'taskora_tasks',
+  COMMENTS: 'taskora_comments',
   DATA_INITIALIZED: 'taskora_v2_initialized',
 };
 
@@ -50,6 +51,7 @@ export function resetStorage() {
   safeSet(STORAGE_KEYS.USERS, INITIAL_USERS);
   safeSet(STORAGE_KEYS.PROJECTS, INITIAL_PROJECTS);
   safeSet(STORAGE_KEYS.TASKS, INITIAL_TASKS);
+  safeSet(STORAGE_KEYS.COMMENTS, []);
   // Default active user is Bob Manager (so user has access to create projects/manage tasks out of the box)
   safeSet(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[1]);
   safeSet(STORAGE_KEYS.DATA_INITIALIZED, true);
@@ -73,4 +75,8 @@ export const Storage = {
   // Tasks
   getTasks: () => safeGet(STORAGE_KEYS.TASKS, INITIAL_TASKS),
   setTasks: (tasks) => safeSet(STORAGE_KEYS.TASKS, tasks),
+
+  // Comments
+  getComments: () => safeGet(STORAGE_KEYS.COMMENTS, []),
+  setComments: (comments) => safeSet(STORAGE_KEYS.COMMENTS, comments),
 };
