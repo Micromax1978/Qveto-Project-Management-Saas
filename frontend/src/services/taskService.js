@@ -8,6 +8,7 @@
 import { Storage } from './storage.js';
 import { TASK_STATUSES, TASK_PRIORITIES } from '../constants/status.js';
 import { Permissions } from '../constants/roles.js';
+import * as api from './api.js';
 
 const delay = (ms = 70) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -137,44 +138,60 @@ export const taskService = {
       throw error;
     }
 
-    // Validate status
-    const status = data.status || 'TODO';
-    if (!TASK_STATUSES[status]) {
-      const error = new Error(`Invalid status '${status}'`);
-      error.status = 400;
-      throw error;
+    // Validate due date if provided
+    let dueDate = data.dueDate || null;
+    if (dueDate) {
+      const parsed = new Date(dueDate);
+      if (isNaN(parsed.getTime())) {
+        const error = new Error('Invalid due date format');
+        error.status = 400;
+        throw error;
+      }
+      dueDate = parsed.toISOString().split('T')[0];
     }
 
+    // Clean subtasks
+    const subtasks = (data.subtasks || []).map((st, i) => ({
+      id: st.id || `sub_${Date.now()}_${i}`,
+      title: st.title.trim(),
+      isCompleted: Boolean(st.isCompleted),
+    }));
+
+    // Clean labels
+    const labels = (data.labels || [])
+      .map((l) => (typeof l === 'string' ? l.trim() : l))
+      .filter(Boolean);
+
     const allTasks = Storage.getTasks();
-    const taskNumber = allTasks.length + 101;
+    const projectTasks = allTasks.filter(
+      (t) => t.projectId === data.projectId && t.orgId === currentUser.orgId
+    );
+
+    const taskSeq = projectTasks.length + 1;
+    const taskCode = `TSK-${String(taskSeq).padStart(3, '0')}`;
 
     const newTask = {
       id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      taskCode: `TSK-${taskNumber}`,
+      taskCode,
       orgId: currentUser.orgId,
       projectId: data.projectId,
       title: data.title.trim(),
       description: data.description ? data.description.trim() : '',
-      status,
+      status: data.status || TASK_STATUSES.TODO,
       priority,
-      orderIndex: 0,
       assigneeId: data.assigneeId || null,
+      dueDate,
+      labels,
+      subtasks,
+      orderIndex: projectTasks.length,
       createdById: currentUser.id,
-      dueDate: data.dueDate || null,
-      labels: Array.isArray(data.labels) ? data.labels.map((l) => l.toLowerCase().trim()) : [],
-      subtasks: Array.isArray(data.subtasks)
-        ? data.subtasks.map((st, i) => ({
-            id: st.id || `sub_${Date.now()}_${i}`,
-            title: st.title.trim(),
-            isCompleted: Boolean(st.isCompleted),
-          }))
-        : [],
       createdAt: new Date().toISOString(),
-      completedAt: status === 'DONE' ? new Date().toISOString() : null,
+      updatedAt: new Date().toISOString(),
+      completedAt: data.status === TASK_STATUSES.DONE ? new Date().toISOString() : null,
     };
 
-    const updated = [newTask, ...allTasks];
-    Storage.setTasks(updated);
+    allTasks.push(newTask);
+    Storage.setTasks(allTasks);
 
     return {
       ...newTask,
@@ -183,13 +200,16 @@ export const taskService = {
   },
 
   /**
-   * Update task fields
+   * Update task details (title, description, priority, assignee, due date, subtasks, labels)
    */
   async updateTask(taskId, updates, user) {
     await delay();
     const currentUser = user || Storage.getCurrentUser();
     const allTasks = Storage.getTasks();
-    const index = allTasks.findIndex((t) => t.id === taskId);
+
+    const index = allTasks.findIndex(
+      (t) => t.id === taskId && t.orgId === currentUser.orgId
+    );
 
     if (index === -1) {
       const error = new Error('Task not found');
@@ -198,75 +218,162 @@ export const taskService = {
     }
 
     const task = allTasks[index];
-    if (task.orgId !== currentUser.orgId) {
+
+    // Validate priority if updating
+    if (updates.priority && !TASK_PRIORITIES[updates.priority]) {
+      const error = new Error(`Invalid priority '${updates.priority}'`);
+      error.status = 400;
+      throw error;
+    }
+
+    // Track status change for completion timestamp
+    let completedAt = task.completedAt;
+    if (updates.status) {
+      if ((updates.status === 'DONE' || updates.status === TASK_STATUSES.DONE?.id) && task.status !== 'DONE') {
+        completedAt = new Date().toISOString();
+      } else if (updates.status !== 'DONE' && updates.status !== TASK_STATUSES.DONE?.id) {
+        completedAt = null;
+      }
+    }
+
+    // Validate due date if updating
+    let dueDate = updates.dueDate !== undefined ? updates.dueDate : task.dueDate;
+    if (dueDate) {
+      const parsed = new Date(dueDate);
+      if (isNaN(parsed.getTime())) {
+        const error = new Error('Invalid due date format');
+        error.status = 400;
+        throw error;
+      }
+      dueDate = parsed.toISOString().split('T')[0];
+    }
+
+    // Clean subtasks if updating
+    let subtasks = task.subtasks || [];
+    if (updates.subtasks) {
+      subtasks = updates.subtasks.map((st, i) => ({
+        id: st.id || `sub_${Date.now()}_${i}`,
+        title: st.title.trim(),
+        isCompleted: Boolean(st.isCompleted),
+      }));
+    }
+
+    const updatedTask = {
+      ...task,
+      ...updates,
+      dueDate,
+      subtasks,
+      completedAt,
+      updatedAt: new Date().toISOString(),
+    };
+
+    allTasks[index] = updatedTask;
+    Storage.setTasks(allTasks);
+
+    return {
+      ...updatedTask,
+      subtaskProgress: calculateSubtaskProgress(updatedTask.subtasks),
+    };
+  },
+
+  /**
+   * Reorder task within same column or across columns with orderIndex persistence
+   */
+  async reorderTask(taskId, { targetStatus, newIndex }, user) {
+    await delay(120);
+    const currentUser = user || Storage.getCurrentUser();
+    const allTasks = Storage.getTasks();
+
+    const task = allTasks.find(
+      (t) => t.id === taskId && t.orgId === currentUser.orgId
+    );
+
+    if (!task) {
       const error = new Error('Task not found');
       error.status = 404;
       throw error;
     }
 
-    if (updates.title !== undefined) {
-      if (!updates.title || !updates.title.trim()) {
-        const error = new Error('Task title cannot be empty');
-        error.status = 400;
-        throw error;
-      }
-      task.title = updates.title.trim();
+    const prevStatus = task.status;
+    const isStageChange = targetStatus && targetStatus !== prevStatus;
+    const finalStatus = targetStatus || prevStatus;
+
+    // Validate destination status
+    if (!TASK_STATUSES[finalStatus]) {
+      const error = new Error(`Invalid target status '${finalStatus}'`);
+      error.status = 400;
+      throw error;
     }
 
-    if (updates.description !== undefined) {
-      task.description = updates.description.trim();
+    // Manage completion timestamp
+    let completedAt = task.completedAt;
+    if ((finalStatus === 'DONE' || finalStatus === TASK_STATUSES.DONE?.id) && prevStatus !== 'DONE') {
+      completedAt = new Date().toISOString();
+    } else if (finalStatus !== 'DONE' && finalStatus !== TASK_STATUSES.DONE?.id) {
+      completedAt = null;
     }
 
-    if (updates.status !== undefined) {
-      if (!TASK_STATUSES[updates.status]) {
-        const error = new Error(`Invalid status '${updates.status}'`);
-        error.status = 400;
-        throw error;
-      }
-      task.status = updates.status;
-      if (updates.status === 'DONE') {
-        task.completedAt = task.completedAt || new Date().toISOString();
-      } else {
-        task.completedAt = null;
-      }
-    }
+    // Extract all tasks in the destination column
+    const otherTasksInTarget = allTasks
+      .filter(
+        (t) =>
+          t.projectId === task.projectId &&
+          t.orgId === currentUser.orgId &&
+          t.id !== taskId &&
+          t.status === finalStatus
+      )
+      .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
-    if (updates.priority !== undefined) {
-      if (!TASK_PRIORITIES[updates.priority]) {
-        const error = new Error(`Invalid priority '${updates.priority}'`);
-        error.status = 400;
-        throw error;
-      }
-      task.priority = updates.priority;
-    }
+    // Insert task at requested index
+    const targetIdx =
+      typeof newIndex === 'number'
+        ? Math.max(0, Math.min(newIndex, otherTasksInTarget.length))
+        : otherTasksInTarget.length;
 
-    if (updates.assigneeId !== undefined) {
-      task.assigneeId = updates.assigneeId || null;
-    }
-
-    if (updates.dueDate !== undefined) {
-      task.dueDate = updates.dueDate || null;
-    }
-
-    if (updates.labels !== undefined && Array.isArray(updates.labels)) {
-      task.labels = updates.labels.map((l) => l.toLowerCase().trim());
-    }
-
-    if (updates.subtasks !== undefined && Array.isArray(updates.subtasks)) {
-      task.subtasks = updates.subtasks;
-    }
-
-    if (updates.orderIndex !== undefined) {
-      task.orderIndex = updates.orderIndex;
-    }
-
-    task.updatedAt = new Date().toISOString();
-    allTasks[index] = { ...task };
-    Storage.setTasks(allTasks);
-
-    return {
+    otherTasksInTarget.splice(targetIdx, 0, {
       ...task,
-      subtaskProgress: calculateSubtaskProgress(task.subtasks),
+      status: finalStatus,
+      completedAt,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Reassign contiguous orderIndex for all cards in destination column
+    const reindexedMap = new Map();
+    otherTasksInTarget.forEach((t, idx) => {
+      reindexedMap.set(t.id, { ...t, orderIndex: idx });
+    });
+
+    // Also reindex source column if stage changed
+    if (isStageChange) {
+      const sourceTasks = allTasks
+        .filter(
+          (t) =>
+            t.projectId === task.projectId &&
+            t.orgId === currentUser.orgId &&
+            t.id !== taskId &&
+            t.status === prevStatus
+        )
+        .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+
+      sourceTasks.forEach((t, idx) => {
+        reindexedMap.set(t.id, { ...t, orderIndex: idx });
+      });
+    }
+
+    // Merge into storage
+    const updatedAllTasks = allTasks.map((t) => {
+      if (reindexedMap.has(t.id)) {
+        return reindexedMap.get(t.id);
+      }
+      return t;
+    });
+
+    Storage.setTasks(updatedAllTasks);
+
+    const saved = updatedAllTasks.find((t) => t.id === taskId);
+    return {
+      ...saved,
+      subtaskProgress: calculateSubtaskProgress(saved.subtasks),
     };
   },
 
@@ -291,16 +398,16 @@ export const taskService = {
     }
 
     const allTasks = Storage.getTasks();
-    const task = allTasks.find((t) => t.id === taskId);
-    if (!task || task.orgId !== currentUser.orgId) {
+    const task = allTasks.find((t) => t.id === taskId && t.orgId === currentUser.orgId);
+
+    if (!task) {
       const error = new Error('Task not found');
       error.status = 404;
       throw error;
     }
 
-    const filtered = allTasks.filter((t) => t.id !== taskId);
-    Storage.setTasks(filtered);
-
+    const remaining = allTasks.filter((t) => t.id !== taskId);
+    Storage.setTasks(remaining);
     return { success: true };
   },
 
@@ -343,5 +450,71 @@ export const taskService = {
     const task = await this.getTaskById(taskId, user);
     const subtasks = (task.subtasks || []).filter((st) => st.id !== subtaskId);
     return this.updateTask(taskId, { subtasks }, user);
+  },
+
+  /**
+   * Comments: List comments for task (oldest-first)
+   */
+  async listComments(taskId, user) {
+    try {
+      const res = await api.fetchTaskComments(taskId);
+      return res.comments || [];
+    } catch (e) {
+      const currentUser = user || Storage.getCurrentUser();
+      const allComments = Storage.getComments();
+      return allComments
+        .filter((c) => c.taskId === taskId && c.organizationId === currentUser.orgId)
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    }
+  },
+
+  /**
+   * Comments: Add comment
+   */
+  async addComment(taskId, text, user) {
+    if (!text || !text.trim()) {
+      const err = new Error('Comment text cannot be empty');
+      err.status = 400;
+      throw err;
+    }
+    try {
+      const comment = await api.createTaskComment(taskId, { text: text.trim() });
+      return comment;
+    } catch (e) {
+      const currentUser = user || Storage.getCurrentUser();
+      const allComments = Storage.getComments();
+      const newComment = {
+        id: `comm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        taskId,
+        authorId: currentUser.id,
+        organizationId: currentUser.orgId,
+        text: text.trim(),
+        createdAt: new Date().toISOString(),
+        author: {
+          id: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          initials: (currentUser.name || 'U').substring(0, 2).toUpperCase(),
+        },
+      };
+      allComments.push(newComment);
+      Storage.setComments(allComments);
+      return newComment;
+    }
+  },
+
+  /**
+   * Comments: Delete comment
+   */
+  async deleteComment(commentId) {
+    try {
+      await api.deleteComment(commentId);
+      return { success: true };
+    } catch (e) {
+      const allComments = Storage.getComments();
+      const filtered = allComments.filter((c) => c.id !== commentId);
+      Storage.setComments(filtered);
+      return { success: true };
+    }
   },
 };

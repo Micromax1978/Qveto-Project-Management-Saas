@@ -3,17 +3,15 @@ import {
   X,
   Calendar,
   CheckSquare,
-  AlertCircle,
   Trash2,
   Edit2,
   Plus,
-  MessageSquare,
 } from 'lucide-react';
-import Avatar from '../ui/Avatar';
-import { StatusBadge, PriorityBadge, LabelBadge } from '../ui/Badge';
+import { LabelBadge } from '../ui/Badge';
 import { TASK_STATUS_LIST, TASK_PRIORITY_LIST, DEFAULT_LABELS } from '../../constants/status';
 import { useAuth } from '../../context/AuthContext';
 import { Permissions } from '../../constants/roles';
+import TaskCommentsSection from './TaskCommentsSection';
 
 export default function TaskDetailsPanel({
   task,
@@ -37,7 +35,6 @@ export default function TaskDetailsPanel({
 
   if (!isOpen || !task) return null;
 
-  const assignee = users.find((u) => u.id === task.assigneeId);
   const subtasks = task.subtasks || [];
   const completedSubtasks = subtasks.filter((s) => s.isCompleted).length;
   const progressPercent = subtasks.length > 0 ? Math.round((completedSubtasks / subtasks.length) * 100) : 0;
@@ -101,31 +98,26 @@ export default function TaskDetailsPanel({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors ml-1"
-              aria-label="Close panel"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white transition-colors ml-2"
+              aria-label="Close details"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Scrollable Main Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
           {/* Title */}
           <div>
-            <h2 className="text-lg font-bold text-slate-900 leading-snug">
+            <h2 className="text-lg font-black text-slate-900 leading-snug tracking-tight">
               {task.title}
             </h2>
-            {task.createdAt && (
-              <p className="text-[11px] text-slate-400 mt-1">
-                Created {new Date(task.createdAt).toLocaleDateString()}
-              </p>
-            )}
           </div>
 
-          {/* Quick Attribute Controls (Status, Priority, Assignee, Due Date) */}
-          <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-50/70 border border-slate-200/80 text-xs">
-            {/* Status */}
+          {/* Quick Properties Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/70 text-xs">
+            {/* Status Selector */}
             <div>
               <span className="text-slate-500 block mb-1 font-medium">Status</span>
               <select
@@ -133,15 +125,15 @@ export default function TaskDetailsPanel({
                 onChange={(e) => onStatusChange(task.id, e.target.value)}
                 className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-800 focus:outline-hidden focus:border-blue-600 cursor-pointer"
               >
-                {TASK_STATUS_LIST.map((st) => (
-                  <option key={st.id} value={st.id}>
-                    {st.label}
+                {TASK_STATUS_LIST.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Priority */}
+            {/* Priority Selector */}
             <div>
               <span className="text-slate-500 block mb-1 font-medium">Priority</span>
               <select
@@ -251,13 +243,13 @@ export default function TaskDetailsPanel({
                             onAddLabel(task.id, lbl.name);
                           }
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                        className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-all ${
                           isSelected
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-400'
                         }`}
                       >
-                        #{lbl.name} {isSelected ? '✓' : '+'}
+                        {isSelected ? `✓ ${lbl.name}` : `+ ${lbl.name}`}
                       </button>
                     );
                   })}
@@ -266,36 +258,34 @@ export default function TaskDetailsPanel({
             )}
           </div>
 
-          {/* Interactive Subtasks Checklist */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
+          {/* Subtasks Section */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 text-blue-600" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Subtasks Checklist
+                <CheckSquare className="w-4 h-4 text-slate-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Subtasks ({completedSubtasks}/{subtasks.length})
                 </h3>
               </div>
-              <span className="text-xs font-bold text-slate-700">
-                {completedSubtasks}/{subtasks.length} ({progressPercent}%)
+              <span className="text-xs font-black text-slate-600">
+                {progressPercent}%
               </span>
             </div>
 
-            {/* Mini Progress Bar */}
-            <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            {/* Subtask Progress Bar */}
+            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  progressPercent === 100 ? 'bg-emerald-500' : 'bg-blue-600'
-                }`}
+                className="h-full bg-blue-600 transition-all duration-300 rounded-full"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
 
-            {/* Subtask list */}
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            {/* Subtasks List */}
+            <div className="space-y-1.5 pt-1">
               {subtasks.map((st) => (
                 <div
                   key={st.id}
-                  className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/60 transition-colors text-xs"
+                  className="flex items-center justify-between p-2 rounded-xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 text-xs"
                 >
                   <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
                     <input
@@ -344,23 +334,8 @@ export default function TaskDetailsPanel({
             </form>
           </div>
 
-          {/* Week 3 Feature Placeholders Notice */}
-          <div className="pt-4 border-t border-slate-100">
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-500 space-y-2">
-              <div className="flex items-center justify-between text-slate-700 font-bold">
-                <span className="flex items-center gap-1.5">
-                  <MessageSquare className="w-4 h-4 text-slate-400" />
-                  <span>Discussion & Attachments</span>
-                </span>
-                <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                  Coming in Week 3
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Task comments, file attachments, and audit activity stream will be integrated during Week 3 collaboration sprints.
-              </p>
-            </div>
-          </div>
+          {/* Week 3 Live Comments & Discussion Stream */}
+          <TaskCommentsSection taskId={task.id} />
         </div>
       </div>
     </div>
