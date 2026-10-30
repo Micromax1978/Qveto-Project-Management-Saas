@@ -1,4 +1,5 @@
 const prisma = require("../config/prisma");
+const activityService = require("../services/activityService");
 
 const MAX_COMMENT_LENGTH = 5000;
 
@@ -225,7 +226,20 @@ async function createComment(req, res, next) {
 
         const enriched = enrichComment(comment);
 
-        // Activity event recording hook (Week 3 Day 5 integration)
+        // Activity event recording (Week 3 Day 5 integration)
+        try {
+            activityService.recordCommentActivity({
+                actor: { id: authorId, name: user.name || "User", email: user.email || "" },
+                task: { id: task.id, title: task.title, projectId: task.projectId },
+                organizationId,
+                comment: enriched,
+                eventType: "COMMENT_CREATED",
+                timestamp: enriched.createdAt
+            });
+        } catch (actErr) {
+            console.warn("[CommentController] Activity record warning:", actErr.message);
+        }
+
         if (req.recordCommentActivity) {
             try {
                 req.recordCommentActivity({
@@ -236,8 +250,8 @@ async function createComment(req, res, next) {
                     eventType: "COMMENT_CREATED",
                     timestamp: enriched.createdAt
                 });
-            } catch (actErr) {
-                console.warn("[CommentController] Activity record warning:", actErr.message);
+            } catch (customActErr) {
+                console.warn("[CommentController] Custom activity handler warning:", customActErr.message);
             }
         }
 
