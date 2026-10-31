@@ -489,3 +489,42 @@ All errors follow the `{ "error": "message" }` format.
    });
    fetch(`/api/tasks?${query}`, { headers });
    ```
+
+---
+
+## 6. Week 3 APIs: Activities, Comments, Notifications & Overdue Engine
+
+### 6.1 Activities API (`/api/activities`)
+Lists the system activity stream for tasks, assignments, status changes, and comments.
+
+- **GET `/api/activities`**: List organization activities.
+  - Query parameters: `taskId`, `projectId`, `userId`, `action`, `limit`, `offset`
+  - Response: `{ organizationId, total, limit, offset, activities: [...] }`
+- **GET `/api/tasks/:id/activities`**: List activity stream specific to a task.
+
+### 6.2 Task Comments API (`/api/tasks/:id/comments`)
+- **GET `/api/tasks/:id/comments`**: List comments for a task.
+- **POST `/api/tasks/:id/comments`**: Add a comment to a task.
+  - Body: `{ "content": "Reviewing PR now" }`
+  - Headers: `x-organization-id: <org-id>`, `x-user-id: <user-id>` (or Bearer token)
+  - Automatically records `COMMENT_ADDED` activity and dispatches a notification to the task assignee.
+
+### 6.3 Overdue Detection API (`/api/tasks/overdue`)
+- **GET `/api/tasks/overdue`**: Query past-due tasks according to the agreed **UTC standard rule** (`dueDate < nowUTC` and status NOT `DONE`/`CANCELLED`).
+  - Response includes calculated `overdueDays`.
+- **POST `/api/tasks/check-overdue`**: Runs overdue detection across the organization and dispatches `TASK_OVERDUE` notifications to assignees.
+  - Enforces daily deduplication keys (`overdue:{taskId}:{YYYY-MM-DD}`) to prevent duplicate notifications.
+
+### 6.4 Notifications API (`/api/notifications`)
+- **GET `/api/notifications`**: Get current user's notifications in the organization (strictly isolated).
+  - Query parameters: `read` (boolean), `type`, `limit`, `offset`
+  - Response: `{ total, unreadCount, notifications: [...] }`
+- **GET `/api/notifications/unread-count`**: Quick badge counter returning `{ unreadCount: number }`.
+- **PATCH `/api/notifications/:id/read`**: Mark specific notification as read.
+- **PATCH `/api/notifications/mark-all-read`**: Mark all unread notifications for current user as read.
+- **DELETE `/api/notifications/:id`**: Delete a notification.
+
+### 6.5 Simulated Email Audit API (`/api/notifications/simulated-emails`)
+- **GET `/api/notifications/simulated-emails`**: Inspect in-memory simulated email deliveries.
+  - Note: Email dispatch in this stage is **SIMULATED** in memory as documented in `docs/notification-limits.md`.
+
