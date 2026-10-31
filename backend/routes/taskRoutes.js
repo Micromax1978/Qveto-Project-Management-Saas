@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const taskController = require("../controllers/taskController");
+const notificationController = require("../controllers/notificationController");
+const activityController = require("../controllers/activityController");
 const { validateFields } = require("../middleware/validator");
 const { optionalAuth } = require("../middleware/auth");
 const { requireOrganization } = require("../middleware/orgAuth");
@@ -21,8 +23,17 @@ function normalizeTaskPayload(req, res, next) {
     next();
 }
 
+// Week 3 Day 3: Overdue detection endpoints (before :id)
+router.get("/overdue", notificationController.getOverdueTasks);
+router.post("/check-overdue", notificationController.triggerOverdueCheck);
+
 // GET /api/tasks
 router.get("/", taskController.getTasks);
+
+// Week 3 Day 1 & Day 2: Task comments and task activities
+router.get("/:id/comments", taskController.getTaskComments);
+router.post("/:id/comments", taskController.addTaskComment);
+router.get("/:id/activities", activityController.getTaskActivities);
 
 // GET /api/tasks/:id
 router.get("/:id", taskController.getTaskById);

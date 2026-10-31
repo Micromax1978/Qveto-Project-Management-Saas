@@ -1,4 +1,13 @@
 const prisma = require("../config/prisma");
+const activityService = require("../services/activityService");
+const notificationService = require("../services/notificationService");
+
+function getActorId(req) {
+    if (req.user && req.user.id) return req.user.id;
+    if (req.headers && req.headers["x-user-id"]) return req.headers["x-user-id"];
+    if (req.query && req.query.userId) return req.query.userId;
+    return null;
+}
 
 const ALLOWED_STATUSES = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "CANCELLED"];
 const ALLOWED_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -344,6 +353,49 @@ async function createTask(req, res, next) {
             }
         });
 
+        const actorId = getActorId(req);
+
+        // Day 1: Record activity - task created
+        await activityService.recordActivity({
+            organizationId,
+            projectId,
+            taskId: task.id,
+            userId: actorId,
+            action: "TASK_CREATED",
+            details: {
+                title: task.title,
+                status: task.status,
+                priority: task.priority
+            }
+        });
+
+        // Day 2: Notification if assigned to someone
+        if (task.assigneeId) {
+            await activityService.recordActivity({
+                organizationId,
+                projectId,
+                taskId: task.id,
+                userId: actorId,
+                action: "TASK_ASSIGNED",
+                details: {
+                    assignedTo: task.assigneeId,
+                    assigneeName: task.assignee?.name || null
+                }
+            });
+
+            if (task.assigneeId !== actorId) {
+                await notificationService.createNotification({
+                    organizationId,
+                    userId: task.assigneeId,
+                    taskId: task.id,
+                    type: "TASK_ASSIGNED",
+                    title: `Task Assigned: ${task.title}`,
+                    message: `You were assigned to task "${task.title}".`,
+                    dedupKey: `assigned:${task.id}:${task.assigneeId}`
+                });
+            }
+        }
+
         res.status(201).json(enrichTask(task));
     } catch (error) {
         next(error);
@@ -461,6 +513,107 @@ async function updateTask(req, res, next) {
             }
         });
 
+        const actorId = getActorId(req);
+
+        // 1. Status change event (Day 1 & Day 2)
+        if (updateData.status && updateData.status !== existing.status) {
+            await activityService.recordActivity({
+                organizationId,
+                projectId: updated.projectId,
+                taskId: updated.id,
+                userId: actorId,
+                action: "TASK_STATUS_CHANGED",
+                details: {
+                    from: existing.status,
+                    to: updateData.status
+                }
+            });
+
+            if (updated.assigneeId && updated.assigneeId !== actorId) {
+                await notificationService.createNotification({
+                    organizationId,
+                    userId: updated.assigneeId,
+                    taskId: updated.id,
+                    type: "TASK_STATUS_CHANGED",
+                    title: `Status Changed: ${updated.title}`,
+                    message: `Task "${updated.title}" status changed from ${existing.status} to ${updateData.status}.`
+                });
+            }
+        }
+
+        // 2. Assignee change event (Day 1 & Day 2)
+        if (updateData.assigneeId !== undefined && updateData.assigneeId !== existing.assigneeId) {
+            await activityService.recordActivity({
+                organizationId,
+                projectId: updated.projectId,
+                taskId: updated.id,
+                userId: actorId,
+                action: "TASK_ASSIGNED",
+                details: {
+                    from: existing.assigneeId,
+                    to: updateData.assigneeId,
+                    assigneeName: updated.assignee?.name || null
+                }
+            });
+
+            if (updated.assigneeId && updated.assigneeId !== actorId) {
+                await notificationService.createNotification({
+                    organizationId,
+                    userId: updated.assigneeId,
+                    taskId: updated.id,
+                    type: "TASK_ASSIGNED",
+                    title: `Task Assigned: ${updated.title}`,
+                    message: `You were assigned to task "${updated.title}".`,
+                    dedupKey: `assigned:${updated.id}:${updated.assigneeId}`
+                });
+            }
+        }
+
+        // 3. Due date change event (Day 1 & Day 2)
+        if (updateData.dueDate !== undefined) {
+            const oldDue = existing.dueDate ? new Date(existing.dueDate).getTime() : null;
+            const newDue = updateData.dueDate ? new Date(updateData.dueDate).getTime() : null;
+            if (oldDue !== newDue) {
+                const newDueStr = updateData.dueDate ? updateData.dueDate.toISOString().slice(0, 10) : "none";
+                await activityService.recordActivity({
+                    organizationId,
+                    projectId: updated.projectId,
+                    taskId: updated.id,
+                    userId: actorId,
+                    action: "TASK_UPDATED",
+                    details: {
+                        field: "dueDate",
+                        newDueDate: newDueStr
+                    }
+                });
+
+                if (updated.assigneeId && updated.assigneeId !== actorId) {
+                    await notificationService.createNotification({
+                        organizationId,
+                        userId: updated.assigneeId,
+                        taskId: updated.id,
+                        type: "DUE_DATE_CHANGED",
+                        title: `Due Date Updated: ${updated.title}`,
+                        message: `Due date for task "${updated.title}" changed to ${newDueStr}.`
+                    });
+                }
+            }
+        }
+
+        // General update
+        if (updateData.title || updateData.description || updateData.priority || updateData.label) {
+            await activityService.recordActivity({
+                organizationId,
+                projectId: updated.projectId,
+                taskId: updated.id,
+                userId: actorId,
+                action: "TASK_UPDATED",
+                details: {
+                    updatedFields: Object.keys(updateData)
+                }
+            });
+        }
+
         res.json(enrichTask(updated));
     } catch (error) {
         next(error);
@@ -510,6 +663,32 @@ async function updateTaskStatus(req, res, next) {
             }
         });
 
+        const actorId = getActorId(req);
+        if (existing.status !== normalizedStatus) {
+            await activityService.recordActivity({
+                organizationId,
+                projectId: updated.projectId,
+                taskId: updated.id,
+                userId: actorId,
+                action: "TASK_STATUS_CHANGED",
+                details: {
+                    from: existing.status,
+                    to: normalizedStatus
+                }
+            });
+
+            if (updated.assigneeId && updated.assigneeId !== actorId) {
+                await notificationService.createNotification({
+                    organizationId,
+                    userId: updated.assigneeId,
+                    taskId: updated.id,
+                    type: "TASK_STATUS_CHANGED",
+                    title: `Status Changed: ${updated.title}`,
+                    message: `Task "${updated.title}" status changed from ${existing.status} to ${normalizedStatus}.`
+                });
+            }
+        }
+
         res.json(enrichTask(updated));
     } catch (error) {
         next(error);
@@ -536,7 +715,140 @@ async function deleteTask(req, res, next) {
             where: { id }
         });
 
+        const actorId = getActorId(req);
+        await activityService.recordActivity({
+            organizationId,
+            projectId: task.projectId,
+            taskId: task.id,
+            userId: actorId,
+            action: "TASK_DELETED",
+            details: { title: task.title }
+        });
+
         res.json({ message: "Task deleted successfully" });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// GET /api/tasks/:id/comments
+async function getTaskComments(req, res, next) {
+    try {
+        const { id: taskId } = req.params;
+        const organizationId = req.organizationId;
+
+        const task = await prisma.task.findFirst({
+            where: { id: taskId, organizationId }
+        });
+
+        if (!task) {
+            return res.status(404).json({
+                error: `Task not found with id: ${taskId} in the current organization`
+            });
+        }
+
+        const comments = await prisma.taskComment.findMany({
+            where: { taskId, organizationId },
+            orderBy: { createdAt: "asc" },
+            include: {
+                user: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
+        });
+
+        res.json({
+            taskId,
+            count: comments.length,
+            comments
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// POST /api/tasks/:id/comments
+async function addTaskComment(req, res, next) {
+    try {
+        const { id: taskId } = req.params;
+        const organizationId = req.organizationId;
+        const actorId = getActorId(req);
+        const { content } = req.body;
+
+        if (!content || typeof content !== "string" || content.trim() === "") {
+            return res.status(400).json({
+                error: "Comment content cannot be empty"
+            });
+        }
+
+        const task = await prisma.task.findFirst({
+            where: { id: taskId, organizationId },
+            include: {
+                assignee: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
+        });
+
+        if (!task) {
+            return res.status(404).json({
+                error: `Task not found with id: ${taskId} in the current organization`
+            });
+        }
+
+        const authorId = actorId || task.assigneeId;
+        if (!authorId) {
+            return res.status(400).json({
+                error: "User identity required to post comment. Provide Bearer token or 'x-user-id' header."
+            });
+        }
+
+        const author = await prisma.user.findUnique({
+            where: { id: authorId },
+            select: { id: true, name: true, email: true }
+        });
+
+        const comment = await prisma.taskComment.create({
+            data: {
+                organizationId,
+                taskId,
+                userId: authorId,
+                content: content.trim()
+            },
+            include: {
+                user: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
+        });
+
+        // Day 1: Record activity - comment added
+        await activityService.recordActivity({
+            organizationId,
+            projectId: task.projectId,
+            taskId,
+            userId: authorId,
+            action: "COMMENT_ADDED",
+            details: {
+                commentId: comment.id,
+                authorName: author?.name || "Team Member",
+                preview: content.trim().slice(0, 100)
+            }
+        });
+
+        // Day 2: Notification if comment is on someone's task
+        if (task.assigneeId && task.assigneeId !== authorId) {
+            await notificationService.createNotification({
+                organizationId,
+                userId: task.assigneeId,
+                taskId,
+                type: "COMMENT_ADDED",
+                title: `New Comment: ${task.title}`,
+                message: `${author?.name || "A team member"} commented on task "${task.title}": "${content.trim().slice(0, 80)}"`
+            });
+        }
+
+        res.status(201).json(comment);
     } catch (error) {
         next(error);
     }
@@ -549,6 +861,8 @@ module.exports = {
     updateTask,
     updateTaskStatus,
     deleteTask,
+    getTaskComments,
+    addTaskComment,
     ALLOWED_STATUSES,
     ALLOWED_PRIORITIES,
     normalizeStatusValue,
