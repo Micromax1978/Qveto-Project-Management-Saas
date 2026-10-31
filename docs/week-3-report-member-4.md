@@ -1,7 +1,7 @@
 # Week 3 Report: Activity History, Notifications & Overdue Engine
 
 **Member:** Member 4 (Backend APIs, Integration and Deployment)  
-**Branch:** `member-4-backend-deploy`  
+**Branch:** `Integration-Deployment`  
 **Repository:** `Qveto-Project-Management-Saas`  
 **Status:** Completed and Verified  
 
@@ -127,4 +127,4 @@ Total tests: 22 passed, 0 failed (duration: 886ms)
 - [x] **Overdue follows the agreed rule:** UTC timezone comparison against non-completed tasks.
 - [x] **Duplicates are controlled:** Daily deduplication key suppression preventing redundant alerts.
 - [x] **Email status is honestly documented:** Simulated in-memory outbox fully documented in `docs/notification-limits.md`.
-- [x] **Ready for GitHub Push:** Committed with clear conventional commit messages on `member-4-backend-deploy`.
+- [x] **Ready for GitHub Push:** Committed with clear conventional commit messages on `Integration-Deployment`.
