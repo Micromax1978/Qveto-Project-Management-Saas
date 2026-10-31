@@ -117,6 +117,8 @@ app.get(
 );
 
 const organizationRoutes = require("./routes/organization.routes");
+const activityRoutes = require("./routes/activityRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 // Mount core API routes
 app.use("/api/auth", authRoutes);
@@ -125,6 +127,8 @@ app.use("/api/organizations", orgRoutes);
 app.use("/api/organization", organizationRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/activities", activityRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // 404 handler for unknown routes
 app.use((req, res) => {

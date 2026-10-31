@@ -149,3 +149,75 @@ export async function deleteTask(id) {
     method: 'DELETE',
   });
 }
+
+// Week 3: Notification API calls
+export async function fetchNotifications(params = {}) {
+  const query = new URLSearchParams();
+  if (params.read !== undefined) query.set('read', params.read);
+  if (params.type) query.set('type', params.type);
+  if (params.limit) query.set('limit', params.limit);
+  if (params.offset) query.set('offset', params.offset);
+
+  const qs = query.toString();
+  return request(`/notifications${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchUnreadNotificationCount() {
+  return request('/notifications/unread-count');
+}
+
+export async function markNotificationAsRead(id) {
+  return request(`/notifications/${id}/read`, {
+    method: 'PATCH',
+  });
+}
+
+export async function markAllNotificationsAsRead() {
+  return request('/notifications/mark-all-read', {
+    method: 'PATCH',
+  });
+}
+
+// Week 3: Activity & Comment API calls
+export async function fetchActivities(params = {}) {
+  const query = new URLSearchParams();
+  if (params.taskId) query.set('taskId', params.taskId);
+  if (params.projectId) query.set('projectId', params.projectId);
+  if (params.action) query.set('action', params.action);
+  if (params.limit) query.set('limit', params.limit);
+
+  const qs = query.toString();
+  return request(`/activities${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchTaskActivities(taskId) {
+  return request(`/tasks/${taskId}/activities`);
+}
+
+export async function fetchTaskComments(taskId) {
+  return request(`/tasks/${taskId}/comments`);
+}
+
+export async function addTaskComment(taskId, content) {
+  return request(`/tasks/${taskId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+}
+
+// Week 3: Overdue Detection API calls
+export async function checkOverdueTasks(referenceDate) {
+  return request('/tasks/check-overdue', {
+    method: 'POST',
+    body: JSON.stringify(referenceDate ? { referenceDate } : {}),
+  });
+}
+
+export async function fetchOverdueTasks() {
+  return request('/tasks/overdue');
+}
+
+export async function fetchSimulatedEmails() {
+  return request('/notifications/simulated-emails');
+}
+

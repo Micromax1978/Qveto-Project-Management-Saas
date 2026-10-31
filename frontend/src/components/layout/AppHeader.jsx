@@ -14,6 +14,11 @@ import Avatar from '../ui/Avatar';
 import { RoleBadge } from '../ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { Permissions } from '../../constants/roles';
+import {
+  fetchNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from '../../services/api';
 
 export default function AppHeader({
   onOpenMobileMenu,
@@ -25,10 +30,52 @@ export default function AppHeader({
   const { currentUser, users, switchUser, resetData } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const loadNotifications = async () => {
+    try {
+      const res = await fetchNotifications({ limit: 10 });
+      if (res && res.notifications) {
+        setNotifications(res.notifications);
+        setUnreadCount(res.unreadCount || 0);
+      }
+    } catch (_) {
+      // Silent failover to maintain UI resilience
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, [currentUser]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleNotificationClick = async (notif) => {
+    if (!notif.read) {
+      try {
+        await markNotificationAsRead(notif.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+        );
+        setUnreadCount((c) => Math.max(0, c - 1));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -127,35 +174,76 @@ export default function AppHeader({
         <div className="relative" ref={notifRef}>
           <button
             type="button"
-            onClick={() => setNotificationsOpen(!notificationsOpen)}
+            onClick={() => {
+              setNotificationsOpen(!notificationsOpen);
+              if (!notificationsOpen) loadNotifications();
+            }}
             className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors relative focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             aria-label="View notifications"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-white" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white" />
+            )}
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-white border border-slate-200 shadow-xl p-4 z-40 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-84 sm:w-96 rounded-2xl bg-white border border-slate-200 shadow-xl p-4 z-40 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
-                <h4 className="text-xs font-bold text-slate-900">Notifications</h4>
-                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                  Week 3 Sync
-                </span>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-slate-900">Notifications</h4>
+                  {unreadCount > 0 && (
+                    <span className="text-[10px] font-bold text-white bg-blue-600 px-1.5 py-0.2 rounded-full">
+                      {unreadCount} new
+                    </span>
+                  )}
+                </div>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer"
+                  >
+                    Mark all read
+                  </button>
+                )}
               </div>
-              <div className="space-y-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="font-semibold text-slate-800">Sprint planning in progress</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Tasks and Kanban workflow synchronized for current sprint.
-                  </p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="font-semibold text-slate-800">Task assigned to you</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    TSK-102: Build Kanban Board drag-and-drop UI.
-                  </p>
-                </div>
+              
+              <div className="space-y-2 text-xs max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400">
+                    <p className="text-xs font-medium text-slate-600">No notifications yet</p>
+                    <p className="text-[10px] mt-0.5 text-slate-400">You're all caught up!</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={`p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                        n.read
+                          ? 'bg-slate-50/70 border-slate-100 text-slate-600'
+                          : 'bg-blue-50/60 border-blue-200 text-slate-900 shadow-2xs hover:bg-blue-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1.5">
+                        <p className="font-bold text-[11px] text-slate-900 leading-snug">{n.title}</p>
+                        {!n.read && (
+                          <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0 mt-1" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        {n.message}
+                      </p>
+                      <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 text-[9px] text-slate-400">
+                        <span>{new Date(n.createdAt).toLocaleDateString()}</span>
+                        <span className="uppercase tracking-wider font-bold text-[8px] bg-slate-200/60 px-1.5 py-0.5 rounded text-slate-600">
+                          {n.type?.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
