@@ -6,7 +6,17 @@
  *   Progress Percentage = (Completed Tasks / (All Tasks - Cancelled Tasks)) * 100
  */
 
-const prisma = require("../config/prisma");
+let prismaClient;
+function getPrisma() {
+    if (!prismaClient) {
+        try {
+            prismaClient = require("../config/prisma");
+        } catch (e) {
+            // Prisma not initialized or installed in current execution environment
+        }
+    }
+    return prismaClient;
+}
 
 /**
  * Pure calculation function that accepts a list of tasks and computes analytics metrics.
@@ -70,6 +80,7 @@ function computeTaskMetrics(tasks = []) {
         eligibleTasks,
         completionPercentage,
         progress: completionPercentage,
+        projectProgress: completionPercentage,
         tasksByStatus: {
             TODO: todoTasks,
             IN_PROGRESS: inProgressTasks,
@@ -98,6 +109,13 @@ async function getProjectAnalytics(projectId, organizationId) {
     if (!organizationId) {
         const err = new Error("Organization ID is required");
         err.status = 400;
+        throw err;
+    }
+
+    const prisma = getPrisma();
+    if (!prisma) {
+        const err = new Error("Database client is not available in current environment");
+        err.status = 500;
         throw err;
     }
 
@@ -162,6 +180,13 @@ async function getOrganizationAnalytics(organizationId) {
     if (!organizationId) {
         const err = new Error("Organization ID is required");
         err.status = 400;
+        throw err;
+    }
+
+    const prisma = getPrisma();
+    if (!prisma) {
+        const err = new Error("Database client is not available in current environment");
+        err.status = 500;
         throw err;
     }
 

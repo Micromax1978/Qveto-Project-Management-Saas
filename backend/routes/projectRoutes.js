@@ -14,6 +14,9 @@ router.get("/", projectController.getProjects);
 // GET /api/projects/:id
 router.get("/:id", projectController.getProjectById);
 
+// GET /api/projects/:id/analytics
+router.get("/:id/analytics", projectController.getProjectAnalytics);
+
 // POST /api/projects
 router.post(
     "/",
