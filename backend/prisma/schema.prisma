@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -33,6 +34,7 @@ model Organization {
   projects    Project[]
   tasks       Task[]
   invitations Invitation[]
+  comments    Comment[]
 
   @@map("organizations")
 }
@@ -48,6 +50,7 @@ model User {
   memberships        Membership[]
   tasks              Task[]          @relation("TaskAssignee")
   projectMemberships ProjectMember[]
+  comments           Comment[]       @relation("CommentAuthor")
 
   @@map("users")
 }
@@ -132,7 +135,9 @@ model Task {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   project      Project      @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Cascade)
   assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  comments     Comment[]
 
+  @@unique([id, organizationId])
   @@index([organizationId])
   @@index([projectId])
   @@index([assigneeId])
@@ -166,4 +171,22 @@ model Invitation {
 
   @@index([organizationId])
   @@map("invitations")
+}
+
+model Comment {
+  id             String   @id @default(uuid())
+  taskId         String   @map("task_id")
+  authorId       String   @map("author_id")
+  organizationId String   @map("organization_id")
+  text           String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  task         Task         @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  author       User         @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@index([authorId])
+  @@index([organizationId])
+  @@map("comments")
 }

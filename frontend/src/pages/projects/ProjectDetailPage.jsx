@@ -9,8 +9,10 @@ import {
   Layers,
   AlertCircle,
   Loader2,
+  BarChart2,
 } from 'lucide-react';
 import ProjectOverviewTab from '../../components/projects/ProjectOverviewTab';
+import ProjectAnalyticsView from '../../components/projects/ProjectAnalyticsView';
 import KanbanBoard from '../../components/kanban/KanbanBoard';
 import TaskListView from '../../components/tasks/TaskListView';
 import TaskFilters from '../../components/tasks/TaskFilters';
@@ -423,10 +425,28 @@ export default function ProjectDetailPage({ isCreateTaskOpen, onCloseCreateTask 
             <List className="w-4 h-4" />
             <span>List</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('analytics')}
+            className={`inline-flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all ${
+              activeTab === 'analytics'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <BarChart2 className="w-4 h-4" />
+            <span>Analytics</span>
+          </button>
         </div>
       </div>
 
       {/* Filter Bar (Active on Board and List Views) */}
+<<<<<<< HEAD
+      {activeTab !== 'overview' && activeTab !== 'analytics' && (
+        <TaskFilters
+          filters={filters}
+=======
       {activeTab !== 'overview' && (
         <>
           <OverdueAlertBanner
@@ -438,6 +458,7 @@ export default function ProjectDetailPage({ isCreateTaskOpen, onCloseCreateTask 
           />
           <TaskFilters
             filters={filters}
+>>>>>>> origin/main
           onFilterChange={(key, val) => setFilters((prev) => ({ ...prev, [key]: val }))}
           onResetFilters={() =>
             setFilters({
@@ -462,6 +483,16 @@ export default function ProjectDetailPage({ isCreateTaskOpen, onCloseCreateTask 
           users={users}
           onSwitchTab={handleTabChange}
           onOpenTaskDetails={setDetailedTask}
+        />
+      )}
+
+      {activeTab === 'analytics' && (
+        <ProjectAnalyticsView
+          project={project}
+          tasks={tasks}
+          loading={loading}
+          error={error}
+          onRefresh={loadProjectAndTasks}
         />
       )}
 

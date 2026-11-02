@@ -8,6 +8,10 @@ import {
   Users,
   UserCheck,
   ArrowRight,
+  TrendingUp,
+  XCircle,
+  BarChart2,
+  ListTodo,
 } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { StatusBadge, PriorityBadge } from '../ui/Badge';
@@ -21,17 +25,31 @@ export default function ProjectOverviewTab({
 }) {
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.status === 'DONE').length;
-  const inProgressTasks = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
-  const inReviewTasks = tasks.filter((t) => t.status === 'REVIEW').length;
-  const todoTasks = tasks.filter((t) => t.status === 'TODO').length;
+  const inProgressTasks = tasks.filter(
+    (t) => t.status === 'IN_PROGRESS' || t.status === 'INPROGRESS'
+  ).length;
+  const inReviewTasks = tasks.filter(
+    (t) => t.status === 'IN_REVIEW' || t.status === 'REVIEW' || t.status === 'INREVIEW'
+  ).length;
+  const todoTasks = tasks.filter((t) => t.status === 'TODO' || !t.status).length;
+  const cancelledTasks = tasks.filter(
+    (t) => t.status === 'CANCELLED' || t.status === 'CANCELED'
+  ).length;
+
+  const remainingTasks = todoTasks + inProgressTasks + inReviewTasks;
+  const eligibleTasks = totalTasks - cancelledTasks;
 
   const today = new Date().toISOString().split('T')[0];
   const overdueTasks = tasks.filter(
     (t) => t.dueDate && t.dueDate < today && t.status !== 'DONE'
   ).length;
 
+  // Official Progress Percentage formula:
+  // (Completed Tasks / (Total Tasks - Cancelled Tasks)) * 100
   const progressPercentage =
-    totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    eligibleTasks > 0
+      ? Math.min(100, Math.max(0, Math.round((completedTasks / eligibleTasks) * 100)))
+      : 0;
 
   // Resolve members
   const memberObjects = (project.members || [])
@@ -49,6 +67,28 @@ export default function ProjectOverviewTab({
     <div className="space-y-6">
       {/* 4 Metric KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Overall Progress Percentage */}
+        <div className="bg-white rounded-2xl border border-blue-200/90 p-4 shadow-xs">
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-semibold text-blue-700">Overall Progress</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-blue-700">{progressPercentage}%</span>
+            <span className="text-[11px] text-blue-600 font-semibold">
+              ({completedTasks}/{eligibleTasks} eligible)
+            </span>
+          </div>
+          <div className="mt-2 w-full bg-blue-100 h-1.5 rounded-full overflow-hidden">
+            <div
+              className="bg-blue-600 h-full rounded-full transition-all duration-300"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+        </div>
+
         {/* Total Tasks */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
@@ -59,14 +99,15 @@ export default function ProjectOverviewTab({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900">{totalTasks}</span>
-            <span className="text-[11px] text-slate-400">backlog items</span>
+            <span className="text-[11px] text-slate-400">total scoped</span>
           </div>
+          <p className="text-[10px] text-slate-400 mt-2">All recorded tasks</p>
         </div>
 
-        {/* Completed */}
+        {/* Completed Tasks */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold">Completed</span>
+            <span className="text-xs font-semibold text-emerald-700">Completed</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -74,53 +115,65 @@ export default function ProjectOverviewTab({
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-emerald-700">{completedTasks}</span>
             <span className="text-[11px] text-emerald-600 font-semibold">
-              ({progressPercentage}%)
+              done
             </span>
           </div>
+          <p className="text-[10px] text-emerald-600/80 mt-2">Status: DONE</p>
         </div>
 
-        {/* In Progress & Review */}
+        {/* Remaining Tasks */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold">Active In Flight</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+            <span className="text-xs font-semibold text-amber-700">Remaining</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
               <Clock className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-blue-700">
-              {inProgressTasks + inReviewTasks}
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {inProgressTasks} prog / {inReviewTasks} rev
-            </span>
+            <span className="text-2xl font-black text-amber-700">{remainingTasks}</span>
+            <span className="text-[11px] text-slate-400">unfinished</span>
           </div>
+          <p className="text-[10px] text-slate-400 mt-2">TODO + Active + Review</p>
+        </div>
+      </div>
+
+      {/* Secondary Status Breakdown Strip (To-Do, In-Progress, In-Review, Cancelled, Overdue) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs">
+          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 mb-1">
+            <ListTodo className="w-3.5 h-3.5 text-slate-400" /> To-Do Tasks
+          </span>
+          <span className="text-lg font-black text-slate-800">{todoTasks}</span>
         </div>
 
-        {/* Overdue */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold">Overdue Tasks</span>
-            <div
-              className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                overdueTasks > 0
-                  ? 'bg-rose-50 text-rose-600 border border-rose-100'
-                  : 'bg-slate-100 text-slate-400'
-              }`}
-            >
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span
-              className={`text-2xl font-black ${
-                overdueTasks > 0 ? 'text-rose-600' : 'text-slate-800'
-              }`}
-            >
-              {overdueTasks}
-            </span>
-            <span className="text-[11px] text-slate-400">past target due date</span>
-          </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs">
+          <span className="text-[11px] font-semibold text-blue-700 flex items-center gap-1 mb-1">
+            <Clock className="w-3.5 h-3.5 text-blue-500" /> In-Progress
+          </span>
+          <span className="text-lg font-black text-blue-700">{inProgressTasks}</span>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs">
+          <span className="text-[11px] font-semibold text-purple-700 flex items-center gap-1 mb-1">
+            <Clock className="w-3.5 h-3.5 text-purple-500" /> In-Review
+          </span>
+          <span className="text-lg font-black text-purple-700">{inReviewTasks}</span>
+        </div>
+
+        <div className="bg-white rounded-xl border border-rose-100 bg-rose-50/30 p-3 shadow-2xs">
+          <span className="text-[11px] font-semibold text-rose-700 flex items-center gap-1 mb-1" title="Excluded from progress denominator">
+            <XCircle className="w-3.5 h-3.5 text-rose-500" /> Cancelled (Excluded)
+          </span>
+          <span className="text-lg font-black text-rose-700">{cancelledTasks}</span>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-2xs">
+          <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mb-1">
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-500" /> Overdue
+          </span>
+          <span className={`text-lg font-black ${overdueTasks > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+            {overdueTasks}
+          </span>
         </div>
       </div>
 
@@ -130,12 +183,22 @@ export default function ProjectOverviewTab({
           <div>
             <h3 className="text-sm font-bold text-slate-900">Sprint Delivery Progress</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Task distribution across delivery milestones
+              Task distribution across delivery milestones &bull; Progress = (Completed / (Total - Cancelled)) &times; 100
             </p>
           </div>
-          <span className="text-base font-extrabold text-blue-600">
-            {progressPercentage}%
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onSwitchTab('analytics')}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              <span>Full Analytics</span>
+            </button>
+            <span className="text-base font-extrabold text-blue-600">
+              {progressPercentage}%
+            </span>
+          </div>
         </div>
 
         {/* Multi-segment stacked progress bar */}
@@ -146,9 +209,9 @@ export default function ProjectOverviewTab({
             title={`Done: ${completedTasks}`}
           />
           <div
-            className="h-full bg-amber-400 transition-all duration-300"
+            className="h-full bg-purple-500 transition-all duration-300"
             style={{ width: `${totalTasks > 0 ? (inReviewTasks / totalTasks) * 100 : 0}%` }}
-            title={`Review: ${inReviewTasks}`}
+            title={`In Review: ${inReviewTasks}`}
           />
           <div
             className="h-full bg-blue-500 transition-all duration-300"
@@ -160,6 +223,11 @@ export default function ProjectOverviewTab({
             style={{ width: `${totalTasks > 0 ? (todoTasks / totalTasks) * 100 : 0}%` }}
             title={`To Do: ${todoTasks}`}
           />
+          <div
+            className="h-full bg-rose-400 transition-all duration-300"
+            style={{ width: `${totalTasks > 0 ? (cancelledTasks / totalTasks) * 100 : 0}%` }}
+            title={`Cancelled (Excluded from denominator): ${cancelledTasks}`}
+          />
         </div>
 
         {/* Legend */}
@@ -169,7 +237,7 @@ export default function ProjectOverviewTab({
             <span className="text-slate-600 font-medium">Done ({completedTasks})</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
             <span className="text-slate-600 font-medium">In Review ({inReviewTasks})</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -179,6 +247,10 @@ export default function ProjectOverviewTab({
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
             <span className="text-slate-600 font-medium">To Do ({todoTasks})</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+            <span className="text-slate-600 font-medium">Cancelled ({cancelledTasks})</span>
           </div>
         </div>
       </div>

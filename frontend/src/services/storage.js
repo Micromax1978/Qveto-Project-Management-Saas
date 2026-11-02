@@ -24,10 +24,14 @@ const STORAGE_KEYS = {
   PROJECTS: 'taskora_projects',
   TASKS: 'taskora_tasks',
   COMMENTS: 'taskora_comments',
+<<<<<<< HEAD
+  DATA_INITIALIZED: 'taskora_v2_initialized',
+=======
   ATTACHMENTS: 'taskora_attachments',
   ACTIVITIES: 'taskora_activities',
   NOTIFICATIONS: 'taskora_notifications',
   DATA_INITIALIZED: 'taskora_v3_initialized',
+>>>>>>> origin/main
 };
 
 function safeGet(key, fallback) {
@@ -83,10 +87,14 @@ export function resetStorage() {
   safeSet(STORAGE_KEYS.ACTIVE_WORKSPACE, 'ws_eng');
   safeSet(STORAGE_KEYS.PROJECTS, INITIAL_PROJECTS);
   safeSet(STORAGE_KEYS.TASKS, INITIAL_TASKS);
+<<<<<<< HEAD
+  safeSet(STORAGE_KEYS.COMMENTS, []);
+=======
   safeSet(STORAGE_KEYS.COMMENTS, INITIAL_COMMENTS);
   safeSet(STORAGE_KEYS.ATTACHMENTS, INITIAL_ATTACHMENTS);
   safeSet(STORAGE_KEYS.ACTIVITIES, INITIAL_ACTIVITIES);
   safeSet(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
+>>>>>>> origin/main
   // Default active user is Bob Manager (so user has access to create projects/manage tasks out of the box)
   safeSet(STORAGE_KEYS.CURRENT_USER, INITIAL_USERS[1]);
   safeSet(STORAGE_KEYS.DATA_INITIALIZED, true);
@@ -121,6 +129,11 @@ export const Storage = {
   getTasks: () => safeGet(STORAGE_KEYS.TASKS, INITIAL_TASKS),
   setTasks: (tasks) => safeSet(STORAGE_KEYS.TASKS, tasks),
 
+<<<<<<< HEAD
+  // Comments
+  getComments: () => safeGet(STORAGE_KEYS.COMMENTS, []),
+  setComments: (comments) => safeSet(STORAGE_KEYS.COMMENTS, comments),
+=======
   // Comments (Week 3)
   getComments: () => safeGet(STORAGE_KEYS.COMMENTS, INITIAL_COMMENTS),
   setComments: (comments) => safeSet(STORAGE_KEYS.COMMENTS, comments),
@@ -136,4 +149,5 @@ export const Storage = {
   // Notifications (Week 3)
   getNotifications: () => safeGet(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS),
   setNotifications: (notifications) => safeSet(STORAGE_KEYS.NOTIFICATIONS, notifications),
+>>>>>>> origin/main
 };

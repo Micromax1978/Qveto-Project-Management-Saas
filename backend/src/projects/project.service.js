@@ -4,6 +4,7 @@
  */
 
 const { getDb } = require('../data/mockDb');
+const { computeTaskMetrics } = require('../../services/analyticsService');
 
 class ProjectService {
   /**
@@ -134,6 +135,29 @@ class ProjectService {
 
     project.updatedAt = new Date().toISOString();
     return project;
+  }
+
+  /**
+   * Calculate project analytics and progress using official formula
+   */
+  static getProjectAnalytics(projectId, user) {
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw { status: 400, message: 'Project ID is required' };
+    }
+    const project = this.getProjectById(projectId, user);
+    const db = getDb();
+    const tasks = db.tasks.filter(t => t.projectId === projectId && t.orgId === user.orgId);
+    const metrics = computeTaskMetrics(tasks);
+
+    return {
+      project: {
+        id: project.id,
+        name: project.name,
+        description: project.description
+      },
+      organizationId: user.orgId,
+      ...metrics
+    };
   }
 }
 

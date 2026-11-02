@@ -1,12 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const taskController = require("../controllers/taskController");
+const commentRoutes = require("./commentRoutes");
 const { validateFields } = require("../middleware/validator");
 const { optionalAuth } = require("../middleware/auth");
 const { requireOrganization } = require("../middleware/orgAuth");
 
 router.use(optionalAuth);
 router.use(requireOrganization);
+
+// Mount task comments sub-router: /api/tasks/:taskId/comments
+router.use("/:taskId/comments", commentRoutes);
 
 // Normalization middleware to permit lowercase/camelCase aliases (e.g., inProgress -> IN_PROGRESS)
 function normalizeTaskPayload(req, res, next) {

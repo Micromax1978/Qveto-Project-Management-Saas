@@ -1,4 +1,6 @@
 const prisma = require("../config/prisma");
+const analyticsService = require("../services/analyticsService");
+const { computeTaskMetrics } = analyticsService;
 
 // GET /api/projects
 async function getProjects(req, res, next) {
@@ -43,43 +45,31 @@ async function getProjects(req, res, next) {
             orderBy: { [orderField]: orderDirection }
         });
 
-        // Enrich projects with metrics needed by Member 3's UI screens
+        // Enrich projects with metrics calculated via the official progress formula
         const enrichedProjects = projects.map((project) => {
             const tasks = project.tasks || [];
-            const taskCount = tasks.length;
-
-            const tasksByStatus = {
-                TODO: 0,
-                IN_PROGRESS: 0,
-                IN_REVIEW: 0,
-                DONE: 0,
-                CANCELLED: 0
-            };
+            const metrics = computeTaskMetrics(tasks);
 
             const memberMap = new Map();
 
             for (const task of tasks) {
-                if (tasksByStatus[task.status] !== undefined) {
-                    tasksByStatus[task.status]++;
-                }
                 if (task.assignee && !memberMap.has(task.assignee.id)) {
                     memberMap.set(task.assignee.id, task.assignee);
                 }
             }
 
-            const completedTaskCount = tasksByStatus.DONE;
-            const progress = taskCount > 0
-                ? Math.round((completedTaskCount / taskCount) * 100)
-                : 0;
-
             const { tasks: _, ...projectData } = project;
 
             return {
                 ...projectData,
-                taskCount,
-                completedTaskCount,
-                progress,
-                tasksByStatus,
+                taskCount: metrics.totalTasks,
+                completedTaskCount: metrics.completedTasks,
+                progress: metrics.completionPercentage,
+                completionPercentage: metrics.completionPercentage,
+                remainingTasks: metrics.remainingTasks,
+                cancelledTasks: metrics.cancelledTasks,
+                tasksByStatus: metrics.tasksByStatus,
+                metrics,
                 members: Array.from(memberMap.values())
             };
         });
@@ -127,26 +117,25 @@ async function getProjectById(req, res, next) {
         }
 
         const tasks = project.tasks || [];
-        const totalTasks = tasks.length;
-        const completedTasks = tasks.filter((t) => t.status === "DONE").length;
-        const inProgressTasks = tasks.filter((t) => t.status === "IN_PROGRESS").length;
-        const todoTasks = tasks.filter((t) => t.status === "TODO").length;
-        const inReviewTasks = tasks.filter((t) => t.status === "IN_REVIEW").length;
-        const progressPercentage = totalTasks > 0
-            ? Math.round((completedTasks / totalTasks) * 100)
-            : 0;
+        const metrics = computeTaskMetrics(tasks);
 
         res.json({
             ...project,
-            metrics: {
-                totalTasks,
-                completedTasks,
-                inProgressTasks,
-                todoTasks,
-                inReviewTasks,
-                progressPercentage
-            }
+            metrics
         });
+    } catch (error) {
+        next(error);
+    }
+}
+
+// GET /api/projects/:id/analytics
+async function getProjectAnalytics(req, res, next) {
+    try {
+        const { id } = req.params;
+        const organizationId = req.organizationId;
+
+        const analytics = await analyticsService.getProjectAnalytics(id, organizationId);
+        res.json(analytics);
     } catch (error) {
         next(error);
     }
@@ -291,6 +280,7 @@ async function deleteProject(req, res, next) {
 module.exports = {
     getProjects,
     getProjectById,
+    getProjectAnalytics,
     createProject,
     updateProject,
     deleteProject

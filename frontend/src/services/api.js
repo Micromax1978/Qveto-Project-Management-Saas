@@ -86,6 +86,10 @@ export async function fetchProjectById(id) {
   return request(`/projects/${id}`);
 }
 
+export async function fetchProjectAnalytics(id) {
+  return request(`/projects/${id}/analytics`);
+}
+
 export async function createProject(projectData) {
   return request('/projects', {
     method: 'POST',
@@ -149,6 +153,24 @@ export async function updateTaskStatus(id, status) {
 
 export async function deleteTask(id) {
   return request(`/tasks/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// Comment API calls (Week 3)
+export async function fetchTaskComments(taskId) {
+  return request(`/tasks/${taskId}/comments`);
+}
+
+export async function createTaskComment(taskId, commentData) {
+  return request(`/tasks/${taskId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify(commentData),
+  });
+}
+
+export async function deleteComment(commentId) {
+  return request(`/comments/${commentId}`, {
     method: 'DELETE',
   });
 }
