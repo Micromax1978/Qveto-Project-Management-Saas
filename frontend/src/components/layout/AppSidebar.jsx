@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   FolderKanban,
@@ -11,19 +11,34 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  Check,
 } from 'lucide-react';
 import Logo from '../Logo';
 import Avatar from '../ui/Avatar';
 import { RoleBadge } from '../ui/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 export default function AppSidebar({
   collapsed = false,
   onToggleCollapse,
   onCloseMobile,
 }) {
-  const { currentUser, organization } = useAuth();
+  const { currentUser, organization, activeWorkspace, activeWorkspaceId, switchWorkspace } = useAuth();
+  const { unreadCount } = useNotifications();
   const location = useLocation();
+  const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
+  const wsDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target)) {
+        setWsDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Navigation items defined in specification
   const primaryNav = [
@@ -31,7 +46,7 @@ export default function AppSidebar({
       name: 'Overview',
       path: '/app/overview',
       icon: Layers,
-      isPlaceholder: true,
+      isActive: (path) => path === '/app/overview',
     },
     {
       name: 'Projects',
@@ -53,21 +68,21 @@ export default function AppSidebar({
       name: 'Team',
       path: '/app/team',
       icon: Users,
-      badge: 'Week 3',
-      isPlaceholder: true,
+      isActive: (path) => path === '/app/team',
     },
     {
       name: 'Notifications',
       path: '/app/notifications',
       icon: Bell,
-      badge: 'Week 3',
-      isPlaceholder: true,
+      badge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : String(unreadCount)) : null,
+      badgeClass: 'bg-blue-600 text-white font-bold',
+      isActive: (path) => path === '/app/notifications',
     },
     {
       name: 'Settings',
       path: '/app/settings',
       icon: Settings,
-      isPlaceholder: true,
+      isActive: (path) => path === '/app/settings',
     },
   ];
 
@@ -99,13 +114,15 @@ export default function AppSidebar({
         </button>
       </div>
 
-      {/* Workspace / Organization Selector */}
-      <div className="p-3 border-b border-slate-800/60">
-        <div
-          className={`flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 text-slate-200 transition-colors ${
-            collapsed ? 'justify-center' : 'justify-between'
+      {/* Interactive Workspace / Organization Selector */}
+      <div className="p-3 border-b border-slate-800/60 relative" ref={wsDropdownRef}>
+        <button
+          type="button"
+          onClick={() => !collapsed && setWsDropdownOpen(!wsDropdownOpen)}
+          className={`w-full flex items-center gap-2.5 p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 text-slate-200 transition-colors text-left ${
+            collapsed ? 'justify-center cursor-default' : 'justify-between cursor-pointer'
           }`}
-          title={organization?.name || 'Workspace'}
+          title={activeWorkspace?.name || organization?.name || 'Workspace'}
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
@@ -114,16 +131,57 @@ export default function AppSidebar({
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-white truncate">
-                  {organization?.name || 'Acme Corporation'}
+                  {activeWorkspace?.name || organization?.name || 'Acme Corporation'}
                 </p>
                 <p className="text-[10px] text-slate-400 truncate">
-                  {organization?.plan || 'Enterprise Workspace'}
+                  {organization?.name || 'Workspace'}
                 </p>
               </div>
             )}
           </div>
-          {!collapsed && <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-        </div>
+          {!collapsed && <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${wsDropdownOpen ? 'rotate-180' : ''}`} />}
+        </button>
+
+        {/* Workspace Dropdown */}
+        {wsDropdownOpen && !collapsed && (
+          <div className="absolute left-3 right-3 top-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-2 z-50">
+            <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Switch Workspace
+            </div>
+            <div className="space-y-1 my-1">
+              {(organization?.workspaces || []).map((ws) => {
+                const isSelected = ws.id === activeWorkspaceId;
+                return (
+                  <button
+                    key={ws.id}
+                    type="button"
+                    onClick={() => {
+                      switchWorkspace(ws.id);
+                      setWsDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      isSelected
+                        ? 'bg-blue-600 text-white font-bold'
+                        : 'text-slate-300 hover:bg-slate-750 hover:text-white'
+                    }`}
+                  >
+                    <span className="truncate">{ws.name}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0 ml-1" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="pt-1.5 border-t border-slate-700/80">
+              <NavLink
+                to="/app/settings"
+                onClick={() => setWsDropdownOpen(false)}
+                className="block text-center py-1 text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                Workspace Settings →
+              </NavLink>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation Sections */}
@@ -166,7 +224,7 @@ export default function AppSidebar({
           </nav>
         </div>
 
-        {/* Secondary Navigation / Placeholders */}
+        {/* Secondary Navigation */}
         <div>
           {!collapsed && (
             <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
@@ -195,7 +253,11 @@ export default function AppSidebar({
                     {!collapsed && <span className="truncate">{item.name}</span>}
                   </div>
                   {!collapsed && item.badge && (
-                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                    <span
+                      className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                        item.badgeClass || 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}
+                    >
                       {item.badge}
                     </span>
                   )}

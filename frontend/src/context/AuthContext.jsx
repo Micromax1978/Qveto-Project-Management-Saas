@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Storage, initStorage, resetStorage } from '../services/storage';
 
 const AuthContext = createContext(null);
@@ -7,15 +7,29 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [organization, setOrganization] = useState(null);
   const [users, setUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState('ws_eng');
   const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
+  const refreshAuth = useCallback(() => {
     initStorage();
-    setCurrentUser(Storage.getCurrentUser());
-    setOrganization(Storage.getOrganization());
-    setUsers(Storage.getUsers());
+    const storedUser = Storage.getCurrentUser();
+    const storedOrg = Storage.getOrganization();
+    const storedUsers = Storage.getUsers();
+    const storedTeams = Storage.getTeams();
+    const storedWsId = Storage.getActiveWorkspaceId();
+
+    setCurrentUser(storedUser);
+    setOrganization(storedOrg);
+    setUsers(storedUsers);
+    setTeams(storedTeams);
+    setActiveWorkspaceIdState(storedWsId);
     setIsLoaded(true);
   }, []);
+
+  useEffect(() => {
+    refreshAuth();
+  }, [refreshAuth]);
 
   const switchUser = (userId) => {
     const target = users.find((u) => u.id === userId);
@@ -25,12 +39,42 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const switchWorkspace = (wsId) => {
+    Storage.setActiveWorkspaceId(wsId);
+    setActiveWorkspaceIdState(wsId);
+  };
+
+  const updateOrganization = (updates) => {
+    const updated = { ...organization, ...updates };
+    Storage.setOrganization(updated);
+    setOrganization(updated);
+  };
+
+  const logout = () => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('organizationId');
+    } catch (e) {
+      // ignore
+    }
+    Storage.setCurrentUser(null);
+    setCurrentUser(null);
+  };
+
+  const loginAs = (user) => {
+    Storage.setCurrentUser(user);
+    setCurrentUser(user);
+  };
+
   const handleResetData = () => {
     resetStorage();
-    setCurrentUser(Storage.getCurrentUser());
-    setOrganization(Storage.getOrganization());
-    setUsers(Storage.getUsers());
+    refreshAuth();
   };
+
+  const activeWorkspace = organization?.workspaces?.find(
+    (w) => w.id === activeWorkspaceId
+  ) || organization?.workspaces?.[0] || null;
 
   return (
     <AuthContext.Provider
@@ -38,8 +82,16 @@ export function AuthProvider({ children }) {
         currentUser,
         organization,
         users,
+        teams,
+        activeWorkspace,
+        activeWorkspaceId,
         isLoaded,
         switchUser,
+        switchWorkspace,
+        updateOrganization,
+        logout,
+        loginAs,
+        refreshAuth,
         resetData: handleResetData,
       }}
     >

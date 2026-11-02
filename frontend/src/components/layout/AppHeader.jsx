@@ -13,7 +13,9 @@ import {
 import Avatar from '../ui/Avatar';
 import { RoleBadge } from '../ui/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { Permissions } from '../../constants/roles';
+import NotificationDropdown from '../notifications/NotificationDropdown';
 
 export default function AppHeader({
   onOpenMobileMenu,
@@ -22,7 +24,8 @@ export default function AppHeader({
   searchQuery = '',
   onSearchChange,
 }) {
-  const { currentUser, users, switchUser, resetData } = useAuth();
+  const { currentUser, users, switchUser, resetData, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -128,36 +131,19 @@ export default function AppHeader({
           <button
             type="button"
             onClick={() => setNotificationsOpen(!notificationsOpen)}
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors relative focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-            aria-label="View notifications"
+            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors relative focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            aria-label={`View notifications (${unreadCount} unread)`}
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-white" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-white border border-slate-200 shadow-xl p-4 z-40 animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
-                <h4 className="text-xs font-bold text-slate-900">Notifications</h4>
-                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                  Week 3 Sync
-                </span>
-              </div>
-              <div className="space-y-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="font-semibold text-slate-800">Sprint planning in progress</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Tasks and Kanban workflow synchronized for current sprint.
-                  </p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="font-semibold text-slate-800">Task assigned to you</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    TSK-102: Build Kanban Board drag-and-drop UI.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <NotificationDropdown onClose={() => setNotificationsOpen(false)} />
           )}
         </div>
 
@@ -261,6 +247,7 @@ export default function AppHeader({
                   type="button"
                   onClick={() => {
                     setProfileOpen(false);
+                    logout();
                     navigate('/login');
                   }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-rose-600 hover:bg-rose-50 transition-colors font-medium text-left"

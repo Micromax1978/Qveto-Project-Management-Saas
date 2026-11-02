@@ -9,6 +9,7 @@ import { PriorityBadge } from '../ui/Badge';
 import { TASK_STATUS_LIST } from '../../constants/status';
 import { useAuth } from '../../context/AuthContext';
 import { Permissions } from '../../constants/roles';
+import { isTaskOverdue, getDeadlineStatus } from '../../utils/dateUtils';
 
 export default function TaskListView({
   tasks = [],
@@ -41,14 +42,15 @@ export default function TaskListView({
               const assignee = users.find((u) => u.id === task.assigneeId);
               const subtasks = task.subtasks || [];
               const completedSubtasks = subtasks.filter((s) => s.isCompleted).length;
-              const isOverdue = task.dueDate && task.dueDate < today && task.status !== 'DONE';
+              const isOverdue = isTaskOverdue(task);
+              const deadline = getDeadlineStatus(task);
 
               return (
                 <tr
                   key={task.id}
                   onClick={() => onOpenDetails(task)}
                   className={`hover:bg-slate-50/80 cursor-pointer transition-colors ${
-                    isOverdue ? 'bg-rose-50/15' : ''
+                    isOverdue ? 'bg-rose-50/20' : ''
                   }`}
                 >
                   {/* Code & Title */}
@@ -107,12 +109,17 @@ export default function TaskListView({
                   <td className="px-4 py-3.5">
                     {task.dueDate ? (
                       <span
-                        className={`inline-flex items-center gap-1 font-medium ${
-                          isOverdue ? 'text-rose-600 font-bold' : 'text-slate-600'
+                        className={`inline-flex items-center gap-1.5 font-medium ${
+                          isOverdue
+                            ? 'text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200'
+                            : deadline.isDueToday
+                            ? 'text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200'
+                            : 'text-slate-600'
                         }`}
+                        title={deadline.label}
                       >
-                        {isOverdue && <AlertCircle className="w-3.5 h-3.5" />}
-                        <span>{task.dueDate}</span>
+                        {isOverdue && <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                        <span>{isOverdue ? deadline.shortLabel : task.dueDate}</span>
                       </span>
                     ) : (
                       <span className="text-slate-400">—</span>
