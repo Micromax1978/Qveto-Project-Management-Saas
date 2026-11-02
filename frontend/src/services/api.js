@@ -83,6 +83,10 @@ export async function fetchProjectById(id) {
   return request(`/projects/${id}`);
 }
 
+export async function fetchProjectAnalytics(id) {
+  return request(`/projects/${id}/analytics`);
+}
+
 export async function createProject(projectData) {
   return request('/projects', {
     method: 'POST',

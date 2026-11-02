@@ -228,4 +228,58 @@ export const projectService = {
 
     return { success: true };
   },
+
+  /**
+   * Get project analytics and progress metrics (Week 4)
+   */
+  async getProjectAnalytics(projectId, user) {
+    const project = await this.getProjectById(projectId, user);
+    const allTasks = Storage.getTasks();
+    const projectTasks = allTasks.filter((t) => t.projectId === projectId);
+
+    const totalTasks = projectTasks.length;
+    let completedTasks = 0;
+    let todoTasks = 0;
+    let inProgressTasks = 0;
+    let inReviewTasks = 0;
+    let cancelledTasks = 0;
+
+    for (const t of projectTasks) {
+      const s = (t.status || 'TODO').toUpperCase();
+      if (s === 'DONE') completedTasks++;
+      else if (s === 'IN_PROGRESS' || s === 'INPROGRESS') inProgressTasks++;
+      else if (s === 'IN_REVIEW' || s === 'REVIEW' || s === 'INREVIEW') inReviewTasks++;
+      else if (s === 'CANCELLED' || s === 'CANCELED') cancelledTasks++;
+      else todoTasks++;
+    }
+
+    const eligibleTasks = totalTasks - cancelledTasks;
+    const remainingTasks = todoTasks + inProgressTasks + inReviewTasks;
+    const completionPercentage =
+      eligibleTasks > 0
+        ? Math.min(100, Math.max(0, Math.round((completedTasks / eligibleTasks) * 100)))
+        : 0;
+
+    return {
+      project: { id: project.id, name: project.name, description: project.description },
+      organizationId: project.orgId,
+      totalTasks,
+      completedTasks,
+      todoTasks,
+      inProgressTasks,
+      inReviewTasks,
+      cancelledTasks,
+      remainingTasks,
+      eligibleTasks,
+      completionPercentage,
+      progress: completionPercentage,
+      tasksByStatus: {
+        TODO: todoTasks,
+        IN_PROGRESS: inProgressTasks,
+        IN_REVIEW: inReviewTasks,
+        DONE: completedTasks,
+        CANCELLED: cancelledTasks,
+      },
+    };
+  },
 };
