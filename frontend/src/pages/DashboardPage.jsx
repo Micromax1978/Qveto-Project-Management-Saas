@@ -29,6 +29,7 @@ import {
   deleteTask,
   getStoredAuth,
 } from '../services/api';
+import { isTaskOverdue, getDeadlineStatus } from '../utils/dateUtils';
 
 const KANBAN_COLUMNS = [
   { key: 'TODO', label: 'TO DO', badgeBg: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400' },
@@ -477,12 +478,29 @@ export default function DashboardPage() {
                             )}
 
                             {/* Due date */}
-                            {task.dueDate && (
-                              <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                                <Clock className="w-3 h-3 text-slate-400" />
-                                <span>{new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                              </div>
-                            )}
+                            {task.dueDate && (() => {
+                              const isOverdue = isTaskOverdue(task);
+                              const deadline = getDeadlineStatus(task);
+                              return (
+                                <div
+                                  className={`flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded ${
+                                    isOverdue
+                                      ? 'text-rose-700 bg-rose-50 border border-rose-200 font-bold'
+                                      : deadline.isDueToday
+                                      ? 'text-amber-700 bg-amber-50 border border-amber-200 font-bold'
+                                      : 'text-slate-500'
+                                  }`}
+                                  title={deadline.label}
+                                >
+                                  {isOverdue ? (
+                                    <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  ) : (
+                                    <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                                  )}
+                                  <span>{isOverdue ? deadline.shortLabel : new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           {/* Quick Status Move Actions (Kanban Progression) */}

@@ -6,12 +6,27 @@ import {
   Trash2,
   Edit2,
   Plus,
+<<<<<<< HEAD
+=======
+  MessageSquare,
+  Paperclip,
+  History,
+  Clock,
+>>>>>>> origin/main
 } from 'lucide-react';
 import { LabelBadge } from '../ui/Badge';
 import { TASK_STATUS_LIST, TASK_PRIORITY_LIST, DEFAULT_LABELS } from '../../constants/status';
 import { useAuth } from '../../context/AuthContext';
 import { Permissions } from '../../constants/roles';
+<<<<<<< HEAD
 import TaskCommentsSection from './TaskCommentsSection';
+=======
+import { isTaskOverdue, getDeadlineStatus } from '../../utils/dateUtils';
+import CommentThread from '../comments/CommentThread';
+import AttachmentSection from '../attachments/AttachmentSection';
+import ActivityTimeline from '../activity/ActivityTimeline';
+import OverdueBadge from '../overdue/OverdueBadge';
+>>>>>>> origin/main
 
 export default function TaskDetailsPanel({
   task,
@@ -32,6 +47,8 @@ export default function TaskDetailsPanel({
   const { currentUser, users } = useAuth();
   const [newSubtask, setNewSubtask] = useState('');
   const [labelSelectorOpen, setLabelSelectorOpen] = useState(false);
+  const [collabTab, setCollabTab] = useState('comments'); // 'comments' | 'attachments' | 'activity'
+  const [activityTrigger, setActivityTrigger] = useState(0);
 
   if (!isOpen || !task) return null;
 
@@ -39,8 +56,8 @@ export default function TaskDetailsPanel({
   const completedSubtasks = subtasks.filter((s) => s.isCompleted).length;
   const progressPercent = subtasks.length > 0 ? Math.round((completedSubtasks / subtasks.length) * 100) : 0;
 
-  const today = new Date().toISOString().split('T')[0];
-  const isOverdue = task.dueDate && task.dueDate < today && task.status !== 'DONE';
+  const isOverdue = isTaskOverdue(task);
+  const deadline = getDeadlineStatus(task);
 
   const canDelete = Permissions.canDeleteTask(currentUser?.role);
 
@@ -171,14 +188,23 @@ export default function TaskDetailsPanel({
               <span className="text-slate-500 block mb-1 font-medium">Due Date</span>
               <div
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-white ${
-                  isOverdue ? 'border-rose-300 text-rose-700 font-bold' : 'border-slate-200 text-slate-800'
+                  isOverdue
+                    ? 'border-rose-300 text-rose-700 font-bold bg-rose-50/20'
+                    : deadline.isDueToday
+                    ? 'border-amber-300 text-amber-700 font-bold bg-amber-50/20'
+                    : 'border-slate-200 text-slate-800'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="truncate">{task.dueDate || 'Not set'}</span>
                 {isOverdue && (
-                  <span className="text-[10px] text-rose-600 bg-rose-50 px-1 rounded ml-auto">
-                    Overdue
+                  <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded ml-auto">
+                    {deadline.shortLabel || 'Overdue'}
+                  </span>
+                )}
+                {!isOverdue && deadline.isDueToday && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded ml-auto">
+                    Today
                   </span>
                 )}
               </div>
@@ -334,8 +360,77 @@ export default function TaskDetailsPanel({
             </form>
           </div>
 
+<<<<<<< HEAD
           {/* Week 3 Live Comments & Discussion Stream */}
           <TaskCommentsSection taskId={task.id} />
+=======
+          {/* Collaboration, Attachments & Activity History */}
+          <div className="pt-4 border-t border-slate-100 space-y-4">
+            {/* Tab Selection */}
+            <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/80 text-xs gap-1">
+              <button
+                type="button"
+                onClick={() => setCollabTab('comments')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-semibold transition-all ${
+                  collabTab === 'comments'
+                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Comments</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCollabTab('attachments')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-semibold transition-all ${
+                  collabTab === 'attachments'
+                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+                <span>Files</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCollabTab('activity')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg font-semibold transition-all ${
+                  collabTab === 'activity'
+                    ? 'bg-white text-blue-700 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>History</span>
+              </button>
+            </div>
+
+            {/* Selected Tab Content */}
+            {collabTab === 'comments' && (
+              <CommentThread
+                taskId={task.id}
+                onActivityLogged={() => setActivityTrigger((v) => v + 1)}
+              />
+            )}
+
+            {collabTab === 'attachments' && (
+              <AttachmentSection
+                taskId={task.id}
+                onActivityLogged={() => setActivityTrigger((v) => v + 1)}
+              />
+            )}
+
+            {collabTab === 'activity' && (
+              <ActivityTimeline
+                taskId={task.id}
+                refreshTrigger={activityTrigger}
+              />
+            )}
+          </div>
+>>>>>>> origin/main
         </div>
       </div>
     </div>

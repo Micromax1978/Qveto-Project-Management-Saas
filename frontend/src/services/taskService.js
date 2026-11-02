@@ -8,7 +8,13 @@
 import { Storage } from './storage.js';
 import { TASK_STATUSES, TASK_PRIORITIES } from '../constants/status.js';
 import { Permissions } from '../constants/roles.js';
+<<<<<<< HEAD
 import * as api from './api.js';
+=======
+import { isTaskOverdue } from '../utils/dateUtils.js';
+import { activityService } from './activityService.js';
+import { notificationService } from './notificationService.js';
+>>>>>>> origin/main
 
 const delay = (ms = 70) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -66,8 +72,7 @@ export const taskService = {
 
     // Filter by overdue status
     if (filters.overdueOnly) {
-      const today = new Date().toISOString().split('T')[0];
-      tasks = tasks.filter((t) => t.dueDate && t.dueDate < today && t.status !== 'DONE');
+      tasks = tasks.filter((t) => isTaskOverdue(t));
     }
 
     // Search query in title or description
@@ -193,6 +198,32 @@ export const taskService = {
     allTasks.push(newTask);
     Storage.setTasks(allTasks);
 
+    try {
+      activityService.logActivity(
+        newTask.id,
+        'TASK_CREATED',
+        `created task "${newTask.title}"`,
+        null,
+        newTask.title,
+        currentUser
+      );
+
+      if (newTask.assigneeId && newTask.assigneeId !== currentUser.id) {
+        notificationService.addNotification({
+          orgId: currentUser.orgId,
+          recipientId: newTask.assigneeId,
+          actorId: currentUser.id,
+          type: 'TASK_ASSIGNED',
+          title: `Task Assigned: ${newTask.taskCode}`,
+          message: `${currentUser.name} assigned you to "${newTask.title}".`,
+          taskId: newTask.id,
+          projectId: newTask.projectId,
+        });
+      }
+    } catch (e) {
+      // Safe fallback
+    }
+
     return {
       ...newTask,
       subtaskProgress: calculateSubtaskProgress(newTask.subtasks),
@@ -295,6 +326,7 @@ export const taskService = {
     }
 
     const prevStatus = task.status;
+<<<<<<< HEAD
     const isStageChange = targetStatus && targetStatus !== prevStatus;
     const finalStatus = targetStatus || prevStatus;
 
@@ -303,6 +335,19 @@ export const taskService = {
       const error = new Error(`Invalid target status '${finalStatus}'`);
       error.status = 400;
       throw error;
+=======
+    const prevPriority = task.priority;
+    const prevAssigneeId = task.assigneeId;
+    const prevDueDate = task.dueDate;
+
+    if (updates.title !== undefined) {
+      if (!updates.title || !updates.title.trim()) {
+        const error = new Error('Task title cannot be empty');
+        error.status = 400;
+        throw error;
+      }
+      task.title = updates.title.trim();
+>>>>>>> origin/main
     }
 
     // Manage completion timestamp
@@ -330,7 +375,125 @@ export const taskService = {
         ? Math.max(0, Math.min(newIndex, otherTasksInTarget.length))
         : otherTasksInTarget.length;
 
+<<<<<<< HEAD
     otherTasksInTarget.splice(targetIdx, 0, {
+=======
+    if (updates.assigneeId !== undefined) {
+      task.assigneeId = updates.assigneeId || null;
+    }
+
+    if (updates.dueDate !== undefined) {
+      task.dueDate = updates.dueDate || null;
+    }
+
+    if (updates.labels !== undefined && Array.isArray(updates.labels)) {
+      task.labels = updates.labels.map((l) => l.toLowerCase().trim());
+    }
+
+    if (updates.subtasks !== undefined && Array.isArray(updates.subtasks)) {
+      task.subtasks = updates.subtasks;
+    }
+
+    if (updates.orderIndex !== undefined) {
+      task.orderIndex = updates.orderIndex;
+    }
+
+    task.updatedAt = new Date().toISOString();
+    allTasks[index] = { ...task };
+    Storage.setTasks(allTasks);
+
+    try {
+      if (updates.status !== undefined && updates.status !== prevStatus) {
+        activityService.logActivity(
+          taskId,
+          'STATUS_CHANGED',
+          `changed status from ${TASK_STATUSES[prevStatus]?.label || prevStatus} to ${
+            TASK_STATUSES[updates.status]?.label || updates.status
+          }`,
+          prevStatus,
+          updates.status,
+          currentUser
+        );
+        if (task.assigneeId && task.assigneeId !== currentUser.id) {
+          notificationService.addNotification({
+            orgId: currentUser.orgId,
+            recipientId: task.assigneeId,
+            actorId: currentUser.id,
+            type: 'STATUS_CHANGED',
+            title: `Task Status: ${task.taskCode}`,
+            message: `${currentUser.name} moved "${task.title}" to ${
+              TASK_STATUSES[updates.status]?.label || updates.status
+            }.`,
+            taskId,
+            projectId: task.projectId,
+          });
+        }
+      }
+
+      if (updates.priority !== undefined && updates.priority !== prevPriority) {
+        activityService.logActivity(
+          taskId,
+          'PRIORITY_CHANGED',
+          `updated priority from ${prevPriority} to ${updates.priority}`,
+          prevPriority,
+          updates.priority,
+          currentUser
+        );
+      }
+
+      if (updates.assigneeId !== undefined && updates.assigneeId !== prevAssigneeId) {
+        const allUsers = Storage.getUsers();
+        const newAssignee = allUsers.find((u) => u.id === updates.assigneeId);
+        activityService.logActivity(
+          taskId,
+          'ASSIGNEE_CHANGED',
+          `reassigned task to ${newAssignee ? newAssignee.name : 'Unassigned'}`,
+          prevAssigneeId,
+          updates.assigneeId,
+          currentUser
+        );
+        if (updates.assigneeId && updates.assigneeId !== currentUser.id) {
+          notificationService.addNotification({
+            orgId: currentUser.orgId,
+            recipientId: updates.assigneeId,
+            actorId: currentUser.id,
+            type: 'TASK_ASSIGNED',
+            title: `Task Assigned: ${task.taskCode}`,
+            message: `${currentUser.name} assigned you to "${task.title}".`,
+            taskId,
+            projectId: task.projectId,
+          });
+        }
+      }
+
+      if (updates.dueDate !== undefined && updates.dueDate !== prevDueDate) {
+        activityService.logActivity(
+          taskId,
+          'DUE_DATE_CHANGED',
+          `modified due date to ${updates.dueDate || 'none'}`,
+          prevDueDate,
+          updates.dueDate,
+          currentUser
+        );
+        if (task.assigneeId && task.assigneeId !== currentUser.id) {
+          notificationService.addNotification({
+            orgId: currentUser.orgId,
+            recipientId: task.assigneeId,
+            actorId: currentUser.id,
+            type: 'DUE_DATE_CHANGED',
+            title: `Due Date Changed: ${task.taskCode}`,
+            message: `${currentUser.name} updated the due date to ${updates.dueDate || 'none'}.`,
+            taskId,
+            projectId: task.projectId,
+          });
+        }
+      }
+    } catch (e) {
+      // Safe fallback
+    }
+
+    return {
+>>>>>>> origin/main
       ...task,
       status: finalStatus,
       completedAt,
@@ -416,14 +579,31 @@ export const taskService = {
    */
   async toggleSubtask(taskId, subtaskId, user) {
     const task = await this.getTaskById(taskId, user);
+    let targetSubtask = null;
     const subtasks = (task.subtasks || []).map((st) => {
       if (st.id === subtaskId) {
-        return { ...st, isCompleted: !st.isCompleted };
+        targetSubtask = { ...st, isCompleted: !st.isCompleted };
+        return targetSubtask;
       }
       return st;
     });
 
-    return this.updateTask(taskId, { subtasks }, user);
+    const result = await this.updateTask(taskId, { subtasks }, user);
+
+    try {
+      if (targetSubtask) {
+        await activityService.logActivity(
+          taskId,
+          'SUBTASK_TOGGLED',
+          `${targetSubtask.isCompleted ? 'completed' : 'reopened'} subtask "${targetSubtask.title}"`,
+          !targetSubtask.isCompleted,
+          targetSubtask.isCompleted,
+          user || Storage.getCurrentUser()
+        );
+      }
+    } catch (e) {}
+
+    return result;
   },
 
   /**
@@ -440,7 +620,20 @@ export const taskService = {
       isCompleted: false,
     };
     const subtasks = [...(task.subtasks || []), newSubtask];
-    return this.updateTask(taskId, { subtasks }, user);
+    const result = await this.updateTask(taskId, { subtasks }, user);
+
+    try {
+      await activityService.logActivity(
+        taskId,
+        'SUBTASK_ADDED',
+        `added subtask "${title.trim()}"`,
+        null,
+        title.trim(),
+        user || Storage.getCurrentUser()
+      );
+    } catch (e) {}
+
+    return result;
   },
 
   /**

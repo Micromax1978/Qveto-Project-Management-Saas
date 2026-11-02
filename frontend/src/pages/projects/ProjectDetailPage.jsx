@@ -20,6 +20,8 @@ import TaskFormModal from '../../components/tasks/TaskFormModal';
 import TaskDetailsPanel from '../../components/tasks/TaskDetailsPanel';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import EmptyState from '../../components/ui/EmptyState';
+import OverdueAlertBanner from '../../components/overdue/OverdueAlertBanner';
+import { isTaskOverdue } from '../../utils/dateUtils';
 import { StatusBadge } from '../../components/ui/Badge';
 import { projectService } from '../../services/projectService';
 import { taskService } from '../../services/taskService';
@@ -129,8 +131,7 @@ export default function ProjectDetailPage({ isCreateTaskOpen, onCloseCreateTask 
     }
 
     if (filters.overdueOnly) {
-      const today = new Date().toISOString().split('T')[0];
-      result = result.filter((t) => t.dueDate && t.dueDate < today && t.status !== 'DONE');
+      result = result.filter((t) => isTaskOverdue(t));
     }
 
     return result;
@@ -441,9 +442,23 @@ export default function ProjectDetailPage({ isCreateTaskOpen, onCloseCreateTask 
       </div>
 
       {/* Filter Bar (Active on Board and List Views) */}
+<<<<<<< HEAD
       {activeTab !== 'overview' && activeTab !== 'analytics' && (
         <TaskFilters
           filters={filters}
+=======
+      {activeTab !== 'overview' && (
+        <>
+          <OverdueAlertBanner
+            tasks={tasks}
+            isOverdueFilterActive={filters.overdueOnly}
+            onFilterOverdue={() =>
+              setFilters((prev) => ({ ...prev, overdueOnly: !prev.overdueOnly }))
+            }
+          />
+          <TaskFilters
+            filters={filters}
+>>>>>>> origin/main
           onFilterChange={(key, val) => setFilters((prev) => ({ ...prev, [key]: val }))}
           onResetFilters={() =>
             setFilters({
@@ -457,6 +472,7 @@ export default function ProjectDetailPage({ isCreateTaskOpen, onCloseCreateTask 
           users={users}
           totalCount={filteredTasks.length}
         />
+        </>
       )}
 
       {/* Tab Content Rendering */}
