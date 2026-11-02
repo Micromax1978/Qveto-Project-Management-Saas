@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Layers,
   Check,
+  BarChart3,
 } from 'lucide-react';
 import Logo from '../Logo';
 import Avatar from '../ui/Avatar';
@@ -60,6 +61,12 @@ export default function AppSidebar({
       path: '/app/tasks',
       icon: CheckSquare,
       isActive: (path) => path === '/app/tasks',
+    },
+    {
+      name: 'Analytics',
+      path: '/app/analytics',
+      icon: BarChart3,
+      isActive: (path) => path === '/app/analytics',
     },
   ];
 

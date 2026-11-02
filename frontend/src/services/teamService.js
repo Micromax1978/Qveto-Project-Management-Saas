@@ -4,7 +4,7 @@
  */
 
 import { Storage } from './storage.js';
-import { ROLES, Permissions } from '../constants/roles.js';
+import { ROLES } from '../constants/roles.js';
 
 export const teamService = {
   /**

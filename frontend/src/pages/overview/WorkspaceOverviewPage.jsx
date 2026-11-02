@@ -400,6 +400,13 @@ export default function WorkspaceOverviewPage() {
                 <span>Notification Center</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
+              <Link
+                to="/app/analytics"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold backdrop-blur-xs transition-colors"
+              >
+                <span>Analytics & Reports</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         </div>

@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import {
   Settings,
-  Building2,
   Layers,
-  Shield,
   ShieldCheck,
   Plus,
   Edit2,
@@ -11,11 +9,10 @@ import {
   Check,
   RefreshCw,
   Lock,
-  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { workspaceService } from '../../services/workspaceService';
-import { ROLES, Permissions } from '../../constants/roles';
+import { ROLES } from '../../constants/roles';
 import { RoleBadge } from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import { useToast } from '../../context/ToastContext';
