@@ -4,267 +4,154 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-enum OrganizationRole {
-  OWNER
-  MANAGER
-  EMPLOYEE
-}
-
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  IN_REVIEW
-  DONE
-  CANCELLED
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  memberships   Membership[]
-  workspaces    Workspace[]
-  teams         Team[]
-  projects      Project[]
-  tasks         Task[]
-  invitations   Invitation[]
-  comments      Comment[]
-  attachments   Attachment[]
-  activities    Activity[]
-  notifications Notification[]
-
-  @@map("organizations")
+  memberships Membership[]
+  workspaces  Workspace[]
+  teams       Team[]
+  projects    Project[]
+  tasks       Task[]
+  invitations Invitation[]
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String       @id @default(cuid())
   name         String
-  email        String   @unique
-  passwordHash String?  @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  memberships            Membership[]
-  tasks                  Task[]          @relation("TaskAssignee")
-  projectMemberships     ProjectMember[]
-  comments               Comment[]
-  attachments            Attachment[]
-  activities             Activity[]
-  receivedNotifications  Notification[]  @relation("NotificationRecipient")
-  triggeredNotifications Notification[]  @relation("NotificationActor")
-
-  @@map("users")
+  memberships    Membership[]
+  projectMembers ProjectMember[]
+  assignedTasks  Task[]
 }
 
 model Membership {
-  id             String           @id @default(uuid())
-  organizationId String           @map("organization_id")
-  userId         String           @map("user_id")
-  role           OrganizationRole @default(EMPLOYEE)
-  createdAt      DateTime         @default(now()) @map("created_at")
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String
+  createdAt      DateTime     @default(now())
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
 
   @@unique([organizationId, userId])
-  @@map("memberships")
 }
 
 model Workspace {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
+  id             String       @id @default(cuid())
+  organizationId String
   name           String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
   teams        Team[]
   projects     Project[]
-
-  @@index([organizationId])
-  @@map("workspaces")
 }
 
 model Team {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  workspaceId    String?  @map("workspace_id")
+  id             String @id @default(cuid())
+  organizationId String
+  workspaceId    String
   name           String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  workspace    Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-
-  @@index([organizationId])
-  @@map("teams")
+  organization Organization @relation(fields: [organizationId], references: [id])
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id])
 }
 
 model Project {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  workspaceId    String?  @map("workspace_id")
+  id             String   @id @default(cuid())
+  organizationId String
+  workspaceId    String
   name           String
   description    String?
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  workspace      Workspace?      @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
   tasks          Task[]
   projectMembers ProjectMember[]
-
-  @@unique([id, organizationId])
-  @@index([organizationId])
-  @@map("projects")
-}
-
-model Task {
-  id             String     @id @default(uuid())
-  organizationId String     @map("organization_id")
-  projectId      String     @map("project_id")
-  assigneeId     String?    @map("assignee_id")
-  title          String
-  description    String?
-  status         TaskStatus @default(TODO)
-  priority       String?    @default("MEDIUM")
-  label          String?
-  dueDate        DateTime?  @map("due_date")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  project      Project      @relation(fields: [projectId, organizationId], references: [id, organizationId], onDelete: Cascade)
-  assignee     User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-
-  comments      Comment[]
-  attachments   Attachment[]
-  activities    Activity[]
-  notifications Notification[]
-
-  @@index([organizationId])
-  @@index([projectId])
-  @@index([assigneeId])
-  @@map("tasks")
 }
 
 model ProjectMember {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  userId    String   @map("user_id")
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
 
   @@unique([projectId, userId])
-  @@index([userId])
-  @@map("project_members")
+}
+
+model Task {
+  id             String    @id @default(cuid())
+  organizationId String
+  projectId      String
+  assigneeId     String?
+  title          String
+  description    String?
+  status         String    @default("TODO")
+  priority       String?
+  orderIndex     Int       @default(0)
+  dueDate        DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee     User?        @relation(fields: [assigneeId], references: [id])
+
+  subtasks   Subtask[]
+  taskLabels TaskLabel[]
+}
+
+model Subtask {
+  id          String   @id @default(cuid())
+  taskId      String
+  title       String
+  status      String   @default("TODO")
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Label {
+  id         String      @id @default(cuid())
+  name       String
+  taskLabels TaskLabel[]
+}
+
+model TaskLabel {
+  id      String @id @default(cuid())
+  taskId  String
+  labelId String
+
+  task  Task  @relation(fields: [taskId], references: [id])
+  label Label @relation(fields: [labelId], references: [id])
+
+  @@unique([taskId, labelId])
 }
 
 model Invitation {
-  id             String    @id @default(uuid())
+  id             String    @id @default(cuid())
   code           String    @unique
-  organizationId String    @map("organization_id")
+  organizationId String
   role           String
   used           Boolean   @default(false)
-  createdAt      DateTime  @default(now()) @map("created_at")
-  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@map("invitations")
-}
-
-model Comment {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  taskId         String   @map("task_id")
-  userId         String   @map("user_id")
-  content        String
-  isEdited       Boolean  @default(false) @map("is_edited")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([taskId])
-  @@index([userId])
-  @@map("comments")
-}
-
-model Attachment {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  taskId         String   @map("task_id")
-  userId         String   @map("user_id")
-  name           String
-  size           Int
-  type           String
-  extension      String
-  storagePath    String   @map("storage_path")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([taskId])
-  @@index([userId])
-  @@map("attachments")
-}
-
-model Activity {
-  id             String   @id @default(uuid())
-  organizationId String   @map("organization_id")
-  taskId         String   @map("task_id")
-  userId         String   @map("user_id")
-  type           String
-  description    String
-  oldValue       String?  @map("old_value")
-  newValue       String?  @map("new_value")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([taskId])
-  @@index([userId])
-  @@map("activities")
-}
-
-model Notification {
-  id             String    @id @default(uuid())
-  organizationId String    @map("organization_id")
-  recipientId    String    @map("recipient_id")
-  actorId        String?   @map("actor_id")
-  taskId         String?   @map("task_id")
-  projectId      String?   @map("project_id")
-  type           String
-  title          String
-  message        String
-  isRead         Boolean   @default(false) @map("is_read")
-  readAt         DateTime? @map("read_at")
-  createdAt      DateTime  @default(now()) @map("created_at")
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  recipient    User         @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
-  actor        User?        @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
-  task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([recipientId, isRead])
-  @@index([organizationId])
-  @@map("notifications")
+  organization Organization @relation(fields: [organizationId], references: [id])
 }

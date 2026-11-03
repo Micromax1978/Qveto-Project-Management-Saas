@@ -12,43 +12,16 @@ router.use(authMiddleware, organizationMiddleware);
 const ALLOWED_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
 const ALLOWED_PRIORITIES = ["LOW", "MEDIUM", "HIGH"];
 
-// Check whether a user belongs to the organization
-// and is a member of the specified project.
-async function isValidAssignee(assigneeId, project, req) {
-    const membership = await prisma.membership.findFirst({
-        where: {
-            organizationId: req.organizationId,
-            userId: assigneeId
-        }
-    });
-
-    if (!membership) {
-        return false;
-    }
-
-    const projectMembership = await prisma.projectMember.findFirst({
-        where: {
-            projectId: project.id,
-            userId: assigneeId
-        }
-    });
-
-    return Boolean(projectMembership);
-}
-
 // Check that the project belongs to the organization
 // and that the user is allowed to access it.
 async function getAuthorizedProject(projectId, req) {
-    if (
-        typeof projectId !== "string" ||
-        !projectId.trim()
-    ) {
+    if (!projectId || typeof projectId !== "string") {
         return null;
     }
 
     const project = await prisma.project.findFirst({
         where: {
-            id: projectId.trim(),
+            id: projectId,
             organizationId: req.organizationId
         }
     });
@@ -81,8 +54,7 @@ async function getAuthorizedProject(projectId, req) {
     return membership ? project : null;
 }
 
-// POST /api/tasks
-// Create a task, optionally assigning it to a project member.
+// POST /api/tasks — Create a task
 router.post("/", async (req, res) => {
     try {
         const {
@@ -90,11 +62,9 @@ router.post("/", async (req, res) => {
             title,
             status,
             priority,
-            dueDate,
-            assigneeId
+            dueDate
         } = req.body;
 
-        // Validate required fields
         if (
             typeof projectId !== "string" ||
             !projectId.trim() ||
@@ -107,7 +77,6 @@ router.post("/", async (req, res) => {
             });
         }
 
-        // Validate status
         if (
             status !== undefined &&
             (
@@ -121,7 +90,6 @@ router.post("/", async (req, res) => {
             });
         }
 
-        // Validate priority
         if (
             priority !== undefined &&
             priority !== null &&
@@ -136,7 +104,6 @@ router.post("/", async (req, res) => {
             });
         }
 
-        // Validate due date
         let parsedDueDate = null;
 
         if (dueDate !== undefined && dueDate !== null && dueDate !== "") {
@@ -150,7 +117,6 @@ router.post("/", async (req, res) => {
             }
         }
 
-        // Verify project access
         const project = await getAuthorizedProject(projectId, req);
 
         if (!project) {
@@ -160,37 +126,6 @@ router.post("/", async (req, res) => {
             });
         }
 
-        // Validate assignee when an ID is provided
-        let validatedAssigneeId = null;
-
-        if (assigneeId !== undefined && assigneeId !== null) {
-            if (
-                typeof assigneeId !== "string" ||
-                !assigneeId.trim()
-            ) {
-                return res.status(400).json({
-                    status: "ERROR",
-                    message: "Assignee ID must be a valid user ID or null"
-                });
-            }
-
-            validatedAssigneeId = assigneeId.trim();
-
-            const validAssignee = await isValidAssignee(
-                validatedAssigneeId,
-                project,
-                req
-            );
-
-            if (!validAssignee) {
-                return res.status(400).json({
-                    status: "ERROR",
-                    message: "Assignee must belong to this organization and project"
-                });
-            }
-        }
-
-        // Create task
         const task = await prisma.task.create({
             data: {
                 organizationId: req.organizationId,
@@ -198,8 +133,7 @@ router.post("/", async (req, res) => {
                 title: title.trim(),
                 status: status === undefined ? "TODO" : status,
                 priority: priority === undefined ? null : priority,
-                dueDate: parsedDueDate,
-                assigneeId: validatedAssigneeId
+                dueDate: parsedDueDate
             }
         });
 
@@ -219,7 +153,7 @@ router.post("/", async (req, res) => {
 });
 
 // GET /api/tasks?projectId=...&status=TODO&priority=HIGH
-// List tasks with optional status and priority filters.
+// List tasks with optional status and priority filters
 router.get("/", async (req, res) => {
     try {
         const { projectId, status, priority } = req.query;
@@ -293,18 +227,11 @@ router.get("/", async (req, res) => {
     }
 });
 
-// PUT /api/tasks/:id
-// Update task fields, including its assignee.
+// PUT /api/tasks/:id — Update a task
 router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const {
-            title,
-            status,
-            priority,
-            dueDate,
-            assigneeId
-        } = req.body;
+        const { title, status, priority, dueDate } = req.body;
 
         const task = await prisma.task.findFirst({
             where: {
@@ -331,7 +258,6 @@ router.put("/:id", async (req, res) => {
 
         const data = {};
 
-        // Update title
         if (title !== undefined) {
             if (typeof title !== "string" || !title.trim()) {
                 return res.status(400).json({
@@ -343,7 +269,6 @@ router.put("/:id", async (req, res) => {
             data.title = title.trim();
         }
 
-        // Update status
         if (status !== undefined) {
             if (
                 typeof status !== "string" ||
@@ -358,7 +283,6 @@ router.put("/:id", async (req, res) => {
             data.status = status;
         }
 
-        // Update priority
         if (priority !== undefined) {
             if (
                 priority !== null &&
@@ -376,7 +300,6 @@ router.put("/:id", async (req, res) => {
             data.priority = priority;
         }
 
-        // Update or clear due date
         if (dueDate !== undefined) {
             if (dueDate === null || dueDate === "") {
                 data.dueDate = null;
@@ -391,41 +314,6 @@ router.put("/:id", async (req, res) => {
                 }
 
                 data.dueDate = parsedDate;
-            }
-        }
-
-        // Assign, change, or unassign a task
-        if (assigneeId !== undefined) {
-            if (assigneeId === null) {
-                // null removes the current assignee
-                data.assigneeId = null;
-            } else {
-                if (
-                    typeof assigneeId !== "string" ||
-                    !assigneeId.trim()
-                ) {
-                    return res.status(400).json({
-                        status: "ERROR",
-                        message: "Assignee ID must be a valid user ID or null"
-                    });
-                }
-
-                const normalizedAssigneeId = assigneeId.trim();
-
-                const validAssignee = await isValidAssignee(
-                    normalizedAssigneeId,
-                    project,
-                    req
-                );
-
-                if (!validAssignee) {
-                    return res.status(400).json({
-                        status: "ERROR",
-                        message: "Assignee must belong to this organization and project"
-                    });
-                }
-
-                data.assigneeId = normalizedAssigneeId;
             }
         }
 
@@ -456,8 +344,7 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// DELETE /api/tasks/:id
-// Delete a task.
+// DELETE /api/tasks/:id — Delete a task
 router.delete("/:id", async (req, res) => {
     try {
         const { id } = req.params;
