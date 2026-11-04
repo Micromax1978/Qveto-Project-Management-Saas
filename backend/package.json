@@ -1,13 +1,22 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Qveto project management SaaS - backend API",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "dev": "node server.js",
+    "dev": "node --watch server.js",
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "prisma skills sync || exit 0"
+    "test": "node --test \"tests/unit/*.test.js\"",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:api": "node --test --test-concurrency=1 \"tests/api/*.test.js\"",
+    "test:all": "node --test --test-concurrency=1 \"tests/**/*.test.js\"",
+    "prisma:generate": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed:demo": "node scripts/seed-demo.js",
+    "seed:invitations": "node seed-invitation.js"
   },
   "keywords": [],
   "author": "",
@@ -16,8 +25,10 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
+    "dotenv": "^17.4.2",
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
     "pg": "^8.23.1",
     "prisma": "^7.10.0"
   }

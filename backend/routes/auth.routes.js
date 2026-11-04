@@ -2,251 +2,204 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
+const authenticateToken = require("../middleware/auth.middleware");
+const requireOrganization = require("../middleware/organization.middleware");
+const { rateLimit } = require("../lib/rateLimit");
+const { HttpError } = require("../lib/errors");
+const { requireString, isValidEmail } = require("../lib/validation");
 
 const router = express.Router();
 
-router.post("/signup", async (req, res) => {
-    try {
-        const {
-            fullName,
-            email,
-            invitationCode,
-            password,
-            role
-        } = req.body;
+// Used so a login for an unknown email takes about as long as a real one.
+const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
 
-        // 1. Validate required fields
-        if (!fullName || !email || !invitationCode || !password || !role) {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "Full name, email, invitation code, password, and role are required"
-            });
-        }
+const ASSIGNABLE_SIGNUP_ROLES = ["manager", "employee"];
 
-        // 2. Validate role
-        if (role !== "manager" && role !== "employee") {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "Invalid role"
-            });
-        }
-
-        // 3. Check whether email already exists
-        const existingUser = await prisma.user.findUnique({
-            where: {
-                email: email.toLowerCase()
-            }
-        });
-
-        if (existingUser) {
-            return res.status(409).json({
-                status: "ERROR",
-                message: "An account with this email already exists"
-            });
-        }
-
-        // 4. Find invitation
-        const invitation = await prisma.invitation.findUnique({
-            where: {
-                code: invitationCode
-            }
-        });
-
-        if (!invitation) {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "Invalid invitation code"
-            });
-        }
-
-        // 5. Check whether invitation was already used
-        if (invitation.used) {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "This invitation code has already been used"
-            });
-        }
-
-        // 6. Check invitation role
-        if (invitation.role !== role) {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "This invitation is not valid for the selected role"
-            });
-        }
-
-        // 7. Check invitation expiry
-        if (
-            invitation.expiresAt &&
-            new Date() > invitation.expiresAt
-        ) {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "This invitation code has expired"
-            });
-        }
-
-        // 8. Hash password
-        const passwordHash = await bcrypt.hash(password, 10);
-
-        // 9. Create user + membership + mark invitation as used
-        const result = await prisma.$transaction(async (tx) => {
-
-            const user = await tx.user.create({
-                data: {
-                    name: fullName,
-                    email: email.toLowerCase(),
-                    passwordHash
-                }
-            });
-
-            const membership = await tx.membership.create({
-                data: {
-                    organizationId: invitation.organizationId,
-                    userId: user.id,
-                    role: role
-                }
-            });
-
-            await tx.invitation.update({
-                where: {
-                    id: invitation.id
-                },
-                data: {
-                    used: true
-                }
-            });
-
-            return {
-                user,
-                membership
-            };
-        });
-
-        // 10. Send response
-        res.status(201).json({
-            status: "OK",
-            message: "Account created successfully",
-            user: {
-                id: result.user.id,
-                name: result.user.name,
-                email: result.user.email
-            },
-            role: result.membership.role,
-            organizationId: result.membership.organizationId
-        });
-
-    } catch (error) {
-        console.error("Signup error:", error);
-
-        res.status(500).json({
-            status: "ERROR",
-            message: "Something went wrong during signup"
-        });
-    }
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    keyFn: (req) => `${req.ip}:${String((req.body && req.body.email) || "").toLowerCase()}`
 });
 
-router.post("/login", async (req, res) => {
-    try {
-        const {
-            email,
-            password,
-            role
-        } = req.body;
+const signupLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 20
+});
 
-        // 1. Validate required fields
-        if (!email || !password || !role) {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "Email, password, and role are required"
-            });
-        }
+router.post("/signup", signupLimiter, async (req, res) => {
+    const body = req.body || {};
 
-        // 2. Validate role
-        if (role !== "manager" && role !== "employee") {
-            return res.status(400).json({
-                status: "ERROR",
-                message: "Invalid role"
-            });
-        }
+    if (!body.fullName || !body.email || !body.invitationCode || !body.password || !body.role) {
+        throw new HttpError(400, "Full name, email, invitation code, password, and role are required");
+    }
 
-        // 3. Find user
-        const user = await prisma.user.findUnique({
-            where: {
-                email: email.toLowerCase()
-            }
+    const fullName = requireString(body.fullName, "Full name", { min: 2, max: 100 });
+    const invitationCode = requireString(body.invitationCode, "Invitation code", { max: 100 });
+
+    if (!isValidEmail(body.email)) {
+        throw new HttpError(400, "A valid email address is required");
+    }
+
+    if (typeof body.password !== "string" || body.password.length < 8 || body.password.length > 128) {
+        throw new HttpError(400, "Password must be between 8 and 128 characters");
+    }
+
+    if (!ASSIGNABLE_SIGNUP_ROLES.includes(body.role)) {
+        throw new HttpError(400, "Invalid role");
+    }
+
+    const email = body.email.trim().toLowerCase();
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+
+    if (existingUser) {
+        throw new HttpError(409, "An account with this email already exists");
+    }
+
+    const invitation = await prisma.invitation.findUnique({
+        where: { code: invitationCode }
+    });
+
+    if (!invitation) {
+        throw new HttpError(400, "Invalid invitation code");
+    }
+
+    if (invitation.used) {
+        throw new HttpError(400, "This invitation code has already been used");
+    }
+
+    if (invitation.role !== body.role) {
+        throw new HttpError(400, "This invitation is not valid for the selected role");
+    }
+
+    if (invitation.expiresAt && new Date() > invitation.expiresAt) {
+        throw new HttpError(400, "This invitation code has expired");
+    }
+
+    const passwordHash = await bcrypt.hash(body.password, 10);
+
+    const result = await prisma.$transaction(async (tx) => {
+        // Claim the invitation atomically so it cannot be used twice by
+        // two simultaneous requests.
+        const claimed = await tx.invitation.updateMany({
+            where: { id: invitation.id, used: false },
+            data: { used: true }
         });
 
-        if (!user) {
-            return res.status(401).json({
-                status: "ERROR",
-                message: "Invalid email or password"
-            });
+        if (claimed.count !== 1) {
+            throw new HttpError(400, "This invitation code has already been used");
         }
 
-        // 4. Compare password
-        const passwordMatch = await bcrypt.compare(
-            password,
-            user.passwordHash
-        );
+        const user = await tx.user.create({
+            data: { name: fullName, email, passwordHash }
+        });
 
-        if (!passwordMatch) {
-            return res.status(401).json({
-                status: "ERROR",
-                message: "Invalid email or password"
-            });
-        }
-
-        // 5. Find user's organization membership
-        const membership = await prisma.membership.findFirst({
-            where: {
+        const membership = await tx.membership.create({
+            data: {
+                organizationId: invitation.organizationId,
                 userId: user.id,
-                role: role
+                role: body.role
             }
         });
 
-        if (!membership) {
-            return res.status(403).json({
-                status: "ERROR",
-                message: "You do not have access with this role"
-            });
-        }
+        return { user, membership };
+    });
 
-        //// 6. Create authentication token
-const token = jwt.sign(
-    {
-        userId: user.id,
-        organizationId: membership.organizationId,
-        role: membership.role
-    },
-    process.env.JWT_SECRET,
-    {
-        expiresIn: "1d"
-    }
-);
-
-// 7. Successful login
-res.status(200).json({
-    status: "OK",
-    message: "Login successful",
-    token,
-    user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-    },
-    role: membership.role,
-    organizationId: membership.organizationId
+    return res.status(201).json({
+        status: "OK",
+        message: "Account created successfully",
+        user: {
+            id: result.user.id,
+            name: result.user.name,
+            email: result.user.email
+        },
+        role: result.membership.role,
+        organizationId: result.membership.organizationId
+    });
 });
 
-    } catch (error) {
-        console.error("Login error:", error);
+router.post("/login", loginLimiter, async (req, res) => {
+    const { email, password, role } = req.body || {};
 
-        res.status(500).json({
-            status: "ERROR",
-            message: "Something went wrong during login"
-        });
+    if (!email || !password || !role) {
+        throw new HttpError(400, "Email, password, and role are required");
     }
+
+    if (typeof email !== "string" || typeof password !== "string") {
+        throw new HttpError(400, "Email and password must be strings");
+    }
+
+    if (!ASSIGNABLE_SIGNUP_ROLES.includes(role)) {
+        throw new HttpError(400, "Invalid role");
+    }
+
+    if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET is not configured");
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { email: email.trim().toLowerCase() }
+    });
+
+    const passwordMatch = await bcrypt.compare(
+        password,
+        user ? user.passwordHash : DUMMY_HASH
+    );
+
+    if (!user || !passwordMatch) {
+        throw new HttpError(401, "Invalid email or password");
+    }
+
+    const membership = await prisma.membership.findFirst({
+        where: { userId: user.id, role }
+    });
+
+    if (!membership) {
+        throw new HttpError(403, "You do not have access with this role");
+    }
+
+    const token = jwt.sign(
+        {
+            userId: user.id,
+            organizationId: membership.organizationId,
+            role: membership.role
+        },
+        process.env.JWT_SECRET,
+        { algorithm: "HS256", expiresIn: "1d" }
+    );
+
+    return res.status(200).json({
+        status: "OK",
+        message: "Login successful",
+        token,
+        user: {
+            id: user.id,
+            name: user.name,
+            email: user.email
+        },
+        role: membership.role,
+        organizationId: membership.organizationId
+    });
+});
+
+// GET /api/auth/me - current user, role and organization
+router.get("/me", authenticateToken, requireOrganization, async (req, res) => {
+    const user = await prisma.user.findUnique({
+        where: { id: req.userId },
+        select: { id: true, name: true, email: true }
+    });
+
+    const organization = await prisma.organization.findUnique({
+        where: { id: req.organizationId },
+        select: { id: true, name: true }
+    });
+
+    return res.json({
+        status: "OK",
+        user,
+        role: req.role,
+        organization
+    });
 });
 
 module.exports = router;

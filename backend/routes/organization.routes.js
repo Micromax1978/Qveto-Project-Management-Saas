@@ -5,44 +5,46 @@ const requireOrganization = require("../middleware/organization.middleware");
 
 const router = express.Router();
 
-// Get members of the current user's organization
-router.get(
-    "/members",
-    authenticateToken,
-    requireOrganization,
-    async (req, res) => {
-        try {
-            const members = await prisma.membership.findMany({
-                where: {
-                    organizationId: req.organizationId
-                },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true
-                        }
-                    }
-                }
-            });
+router.use(authenticateToken, requireOrganization);
 
-            res.json({
-                status: "OK",
-                organizationId: req.organizationId,
-                memberCount: members.length,
-                members
-            });
-        } catch (error) {
-            console.error("Error fetching organization members:", error);
+// GET /api/organization - current organization
+router.get("/", async (req, res) => {
+    const organization = await prisma.organization.findUnique({
+        where: { id: req.organizationId },
+        select: { id: true, name: true, createdAt: true }
+    });
 
-            res.status(500).json({
-                status: "ERROR",
-                message: "Failed to fetch organization members"
-            });
-        }
-    }
-);
+    return res.json({ status: "OK", organization, role: req.role });
+});
+
+// GET /api/organization/members - members of the current user's organization
+router.get("/members", async (req, res) => {
+    const members = await prisma.membership.findMany({
+        where: { organizationId: req.organizationId },
+        include: {
+            user: {
+                select: { id: true, name: true, email: true }
+            }
+        },
+        orderBy: { createdAt: "asc" }
+    });
+
+    return res.json({
+        status: "OK",
+        organizationId: req.organizationId,
+        memberCount: members.length,
+        members
+    });
+});
+
+// GET /api/organization/labels - labels used in this organization
+router.get("/labels", async (req, res) => {
+    const labels = await prisma.label.findMany({
+        where: { organizationId: req.organizationId },
+        orderBy: { name: "asc" }
+    });
+
+    return res.json({ status: "OK", count: labels.length, labels });
+});
 
 module.exports = router;
-

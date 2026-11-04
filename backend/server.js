@@ -1,99 +1,71 @@
 require("dotenv").config();
 
-const express = require("express");
+const logger = require("./lib/logger");
+
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
+    logger.error("JWT_SECRET must be set to a random string of at least 16 characters");
+    process.exit(1);
+}
+
 const prisma = require("./lib/prisma");
-const authRoutes = require("./routes/auth.routes");
-const authenticateToken = require("./middleware/auth.middleware");
-const requireRole = require("./middleware/role.middleware");
-const requireOrganization = require("./middleware/organization.middleware");
-const organizationRoutes = require("./routes/organization.routes");
-const projectRoutes = require("./routes/project.routes");
-const taskRoutes = require("./routes/task.routes");
-const app = express();
+const app = require("./app");
+const { scanOverdueTasks } = require("./services/overdue.service");
 
-const PORT = 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
-// Middleware to read JSON data
-app.use(express.json());
-
-// Authentication routes
-app.use("/api/auth", authRoutes);
-app.use("/api/organization", organizationRoutes);
-app.use("/api/projects", projectRoutes);
-app.use("/api/tasks", taskRoutes);
-
-// Test route
-app.get("/", (req, res) => {
-    res.json({
-        message: "Qveto SaaS Backend is running!"
-    });
+const server = app.listen(PORT, () => {
+    logger.info(`Server running on http://localhost:${PORT}`);
 });
 
-// Health check route
-app.get("/api/health", (req, res) => {
-    res.json({
-        status: "OK",
-        message: "Backend is healthy"
-    });
-});
+// Overdue scan: every OVERDUE_SCAN_INTERVAL_MS (default 15 minutes, 0 disables it).
+const scanIntervalMs = process.env.OVERDUE_SCAN_INTERVAL_MS === undefined
+    ? 15 * 60 * 1000
+    : Number(process.env.OVERDUE_SCAN_INTERVAL_MS);
 
-// Database connection test
-app.get("/api/db-test", async (req, res) => {
-    try {
-        const organizations = await prisma.organization.findMany();
+let scanTimer = null;
 
-        res.json({
-            status: "OK",
-            message: "Database connection successful",
-            organizationCount: organizations.length
-        });
-    } catch (error) {
-        console.error(error);
+if (scanIntervalMs > 0) {
+    const runScan = async () => {
+        try {
+            const result = await scanOverdueTasks();
 
-        res.status(500).json({
-            status: "ERROR",
-            message: "Database connection failed"
-        });
+            if (result.notified > 0) {
+                logger.info("Overdue scan created notifications", result);
+            }
+        } catch (error) {
+            logger.error("Overdue scan failed", { error });
+        }
+    };
+
+    scanTimer = setInterval(runScan, scanIntervalMs);
+    scanTimer.unref();
+    runScan();
+}
+
+async function shutdown(signal) {
+    logger.info(`${signal} received, shutting down`);
+
+    if (scanTimer) {
+        clearInterval(scanTimer);
     }
-});
 
-// Protected route - requires JWT authentication
-app.get("/api/protected-test", authenticateToken, (req, res) => {
-    res.json({
-        status: "OK",
-        message: "Authentication successful",
-        user: req.user
+    server.close(async () => {
+        await prisma.$disconnect();
+        process.exit(0);
     });
+
+    // Force exit if connections do not close in time.
+    setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+process.on("unhandledRejection", (reason) => {
+    logger.error("Unhandled promise rejection", { error: reason instanceof Error ? reason : new Error(String(reason)) });
 });
 
-app.get(
-    "/api/manager-test",
-    authenticateToken,
-    requireRole("owner", "manager"),
-    (req, res) => {
-        res.json({
-            status: "OK",
-            message: "Manager/Owner access granted",
-            user: req.user
-        });
-    }
-);
-
-app.get(
-    "/api/organization-test",
-    authenticateToken,
-    requireOrganization,
-    (req, res) => {
-        res.json({
-            status: "OK",
-            message: "Organization access granted",
-            organizationId: req.organizationId,
-            user: req.user
-        });
-    }
-);
-
-// Start server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+process.on("uncaughtException", (error) => {
+    logger.error("Uncaught exception", { error });
+    process.exit(1);
 });
