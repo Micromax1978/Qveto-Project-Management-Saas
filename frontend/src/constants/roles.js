@@ -64,4 +64,15 @@ export const Permissions = {
   canEditOrgSettings: (role) => role === ROLES.OWNER,
   canInviteMembers: (role) => role === ROLES.OWNER || role === ROLES.MANAGER,
   canRemoveMembers: (role) => role === ROLES.OWNER,
+
+  // Collaboration Permissions (Week 3)
+  canAddComment: (role) => Boolean(role),
+  canEditComment: (role, commentAuthorId, currentUserId) =>
+    Boolean(role) && commentAuthorId === currentUserId,
+  canDeleteComment: (role, commentAuthorId, currentUserId) =>
+    role === ROLES.OWNER || role === ROLES.MANAGER || commentAuthorId === currentUserId,
+  canUploadAttachment: (role) => Boolean(role),
+  canDeleteAttachment: (role, uploaderId, currentUserId) =>
+    role === ROLES.OWNER || role === ROLES.MANAGER || uploaderId === currentUserId,
+  canDownloadAttachment: (role) => Boolean(role),
 };

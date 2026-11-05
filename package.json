@@ -10,6 +10,8 @@
     "test:week1": "node --test tests/week1/*.test.js",
     "test:week2": "node --test tests/week2/*.test.js",
     "test:week3": "node --test tests/week3/*.test.js",
+    "test:week4": "node --test tests/week4/*.test.js",
+    "test:frontend": "node --test tests/frontend/*.test.js",
     "test:day1": "node --test tests/week2/day1-projects.test.js",
     "test:day2": "node --test tests/week2/day2-tasks.test.js",
     "test:day3": "node --test tests/week2/day3-kanban.test.js",
@@ -19,7 +21,10 @@
     "test:w3-day2": "node --test tests/week3/day2-uploads.test.js",
     "test:w3-day3": "node --test tests/week3/day3-attachment-security.test.js",
     "test:w3-day4": "node --test tests/week3/day4-notifications.test.js",
-    "test:w3-day5": "node --test tests/week3/day5-boundaries-regression.test.js"
+    "test:w3-day5": "node --test tests/week3/day5-boundaries-regression.test.js",
+    "test:w4-day1": "node --test tests/week4/day1-full-workflow.test.js",
+    "test:w4-day2": "node --test tests/week4/day2-two-org-isolation.test.js",
+    "test:w4-day3": "node --test tests/week4/day3-final-test-suite.test.js"
   },
   "keywords": [
     "saas",
@@ -28,7 +33,8 @@
     "multi-tenant",
     "qa",
     "testing",
-    "security"
+    "security",
+    "analytics"
   ],
   "author": "Member 5 (QA & Docs)",
   "license": "ISC"

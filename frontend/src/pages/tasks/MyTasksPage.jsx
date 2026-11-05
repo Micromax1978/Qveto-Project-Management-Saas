@@ -13,6 +13,8 @@ import TaskFormModal from '../../components/tasks/TaskFormModal';
 import TaskDetailsPanel from '../../components/tasks/TaskDetailsPanel';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import EmptyState from '../../components/ui/EmptyState';
+import OverdueAlertBanner from '../../components/overdue/OverdueAlertBanner';
+import { isTaskOverdue } from '../../utils/dateUtils';
 import { taskService } from '../../services/taskService';
 import { projectService } from '../../services/projectService';
 import { useAuth } from '../../context/AuthContext';
@@ -102,8 +104,7 @@ export default function MyTasksPage({ isCreateTaskOpen, onCloseCreateTask }) {
     }
 
     if (filters.overdueOnly) {
-      const today = new Date().toISOString().split('T')[0];
-      result = result.filter((t) => t.dueDate && t.dueDate < today && t.status !== 'DONE');
+      result = result.filter((t) => isTaskOverdue(t));
     }
 
     return result;
@@ -244,6 +245,15 @@ export default function MyTasksPage({ isCreateTaskOpen, onCloseCreateTask }) {
           </button>
         </div>
       </div>
+
+      {/* Overdue Alert Banner for Assigned Tasks */}
+      <OverdueAlertBanner
+        tasks={tasks}
+        isOverdueFilterActive={filters.overdueOnly}
+        onFilterOverdue={() =>
+          setFilters((prev) => ({ ...prev, overdueOnly: !prev.overdueOnly }))
+        }
+      />
 
       {/* Task Filters */}
       <TaskFilters

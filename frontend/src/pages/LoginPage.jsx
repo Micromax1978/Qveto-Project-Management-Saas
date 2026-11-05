@@ -17,6 +17,7 @@ import PasswordInput from '../components/auth/PasswordInput';
 import AuthSubmitButton from '../components/auth/AuthSubmitButton';
 import AuthInfoNotice from '../components/auth/AuthInfoNotice';
 import RoleSelector from '../components/auth/RoleSelector';
+import { Storage } from '../services/storage';
 
 export default function LoginPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,9 +136,12 @@ export default function LoginPage() {
       if (res.ok && data.token) {
         localStorage.setItem('token', data.token);
         if (data.organization?.id) localStorage.setItem('organizationId', data.organization.id);
-        if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+          Storage.setCurrentUser(data.user);
+        }
         setIsSubmitting(false);
-        navigate('/dashboard');
+        navigate('/app/projects');
         return;
       }
     } catch (e) {
@@ -145,10 +149,29 @@ export default function LoginPage() {
     }
 
     setTimeout(() => {
+      // Find matching mock user or role
+      const users = Storage.getUsers();
+      const roleMap = {
+        organization: 'OWNER',
+        manager: 'MANAGER',
+        employee: 'EMPLOYEE',
+      };
+      const targetRole = roleMap[selectedRole] || 'MANAGER';
+      const matched =
+        users.find((u) => u.email.toLowerCase() === formData.email.toLowerCase()) ||
+        users.find((u) => u.role === targetRole) ||
+        users[0];
+
+      if (matched) {
+        Storage.setCurrentUser(matched);
+        localStorage.setItem('token', `mock_token_${matched.id}`);
+        localStorage.setItem('user', JSON.stringify(matched));
+      }
+
       setIsSubmitting(false);
       setSubmittedNotice(true);
-      setTimeout(() => navigate('/dashboard'), 600);
-    }, 600);
+      setTimeout(() => navigate('/app/projects'), 400);
+    }, 400);
   };
 
   const handleResetForm = () => {

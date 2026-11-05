@@ -15,6 +15,7 @@ import { PriorityBadge, LabelBadge } from '../ui/Badge';
 import { TASK_STATUSES, TASK_STATUS_LIST } from '../../constants/status';
 import { useAuth } from '../../context/AuthContext';
 import { Permissions } from '../../constants/roles';
+import { isTaskOverdue, getDeadlineStatus } from '../../utils/dateUtils';
 
 export default function KanbanTaskCard({
   task,
@@ -43,9 +44,8 @@ export default function KanbanTaskCard({
   const assignee = users.find((u) => u.id === task.assigneeId);
   const subtasks = task.subtasks || [];
   const completedSubtasks = subtasks.filter((s) => s.isCompleted).length;
-
-  const today = new Date().toISOString().split('T')[0];
-  const isOverdue = task.dueDate && task.dueDate < today && task.status !== 'DONE';
+  const isOverdue = isTaskOverdue(task);
+  const deadline = getDeadlineStatus(task);
 
   const canDelete = Permissions.canDeleteTask(currentUser?.role);
 
@@ -217,17 +217,21 @@ export default function KanbanTaskCard({
           <div
             className={`inline-flex items-center gap-1 text-[11px] font-medium ${
               isOverdue
-                ? 'text-rose-600 font-semibold'
+                ? 'text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200'
+                : deadline.isDueToday
+                ? 'text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200'
                 : 'text-slate-500'
             }`}
-            title={isOverdue ? 'Task is past its due date!' : 'Target completion date'}
+            title={deadline.label}
           >
             {isOverdue ? (
-              <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            ) : deadline.isDueToday ? (
+              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
             ) : (
               <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             )}
-            <span>{task.dueDate}</span>
+            <span>{isOverdue ? (deadline.shortLabel || 'Overdue') : task.dueDate}</span>
           </div>
         ) : (
           <span className="text-[11px] text-slate-400">No due date</span>
